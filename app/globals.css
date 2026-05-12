@@ -1,9 +1,7 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
@@ -12,15 +10,75 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --bg-base: #0A0A0F;
+  --bg-surface: #111118;
+  --bg-card: #16161F;
+  --bg-hover: #1C1C28;
+  --border: #242433;
+  --border-accent: #2D2D45;
+  --text-primary: #F0F0FF;
+  --text-secondary: #8888AA;
+  --text-muted: #44445A;
+  --accent-violet: #7C5CFC;
+  --accent-violet-soft: #7C5CFC18;
+  --ultra-hot: #FF4444;
+  --ultra-hot-soft: #FF444420;
+  --hot: #FF8C00;
+  --hot-soft: #FF8C0020;
+  --warm: #F5C518;
+  --warm-soft: #F5C51820;
+  --cold: #4488FF;
+  --cold-soft: #4488FF20;
+  --success: #22C55E;
+  --success-soft: #22C55E20;
+
+  --background: #0A0A0F;
+  --foreground: #F0F0FF;
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    height: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    height: 100%;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-accent);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
 }
