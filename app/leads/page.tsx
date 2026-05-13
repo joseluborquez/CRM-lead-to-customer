@@ -1,10 +1,10 @@
 import { Suspense } from 'react'
-import { getLeads } from '@/lib/queries'
+import { getLeads, getFollowUpsHoy } from '@/lib/queries'
 import { getServerSupabase } from '@/lib/supabase-server'
 import { LeadsTable } from '@/components/leads/LeadsTable'
 import { LeadFilters } from '@/components/leads/LeadFilters'
 import { TopBar } from '@/components/layout/TopBar'
-import type { LeadFiltros } from '@/lib/types'
+import type { Lead, LeadFiltros } from '@/lib/types'
 
 interface LeadsPageProps {
   searchParams: Promise<{
@@ -12,17 +12,24 @@ interface LeadsPageProps {
     estado?: string
     industria?: string
     busqueda?: string
+    filter?: string
   }>
 }
 
-async function LeadsContent({ filtros }: { filtros: LeadFiltros }) {
+async function LeadsContent({ filtros, filterFollowUp }: { filtros: LeadFiltros; filterFollowUp: boolean }) {
   const db = await getServerSupabase()
-  const leads = await getLeads(filtros, db).catch(() => [])
+  let leads: Lead[]
+  if (filterFollowUp) {
+    leads = await getFollowUpsHoy(db).catch(() => [])
+  } else {
+    leads = await getLeads(filtros, db).catch(() => [])
+  }
   return <LeadsTable leads={leads} />
 }
 
 export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const params = await searchParams
+  const filterFollowUp = params.filter === 'followup'
   const filtros: LeadFiltros = {
     tipo: params.tipo,
     estado: params.estado,
@@ -32,11 +39,13 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
 
   return (
     <div className="flex flex-col min-h-full">
-      <TopBar titulo="Leads" />
+      <TopBar titulo={filterFollowUp ? 'Follow-ups de hoy' : 'Leads'} />
       <div className="flex flex-col gap-4 p-6">
-        <Suspense fallback={null}>
-          <LeadFilters />
-        </Suspense>
+        {!filterFollowUp && (
+          <Suspense fallback={null}>
+            <LeadFilters />
+          </Suspense>
+        )}
         <Suspense
           fallback={
             <div
@@ -45,7 +54,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
             />
           }
         >
-          <LeadsContent filtros={filtros} />
+          <LeadsContent filtros={filtros} filterFollowUp={filterFollowUp} />
         </Suspense>
       </div>
     </div>
