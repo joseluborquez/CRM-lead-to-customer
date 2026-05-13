@@ -72,9 +72,10 @@ export default function LeadDetailPage() {
         if (data) {
           setLead(data)
           setEstado(data.estado)
+          const needsTime = data.tipo_lead === 'Ultra Hot' || data.tipo_lead === 'Hot'
           setProximoSeguimiento(
             data.proximo_seguimiento
-              ? format(new Date(data.proximo_seguimiento), 'yyyy-MM-dd')
+              ? format(new Date(data.proximo_seguimiento), needsTime ? "yyyy-MM-dd'T'HH:mm" : 'yyyy-MM-dd')
               : ''
           )
         }
@@ -116,6 +117,8 @@ export default function LeadDetailPage() {
       </div>
     )
   }
+
+  const needsTime = lead.tipo_lead === 'Ultra Hot' || lead.tipo_lead === 'Hot'
 
   const scoreColor =
     (lead.puntuacion_lead ?? 0) >= 25 ? 'var(--ultra-hot)'
@@ -320,9 +323,14 @@ export default function LeadDetailPage() {
 
               <h3 className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
                 Próximo Seguimiento
+                {needsTime && (
+                  <span className="ml-2 normal-case font-normal" style={{ color: 'var(--accent-violet)' }}>
+                    · con hora
+                  </span>
+                )}
               </h3>
               <input
-                type="date"
+                type={needsTime ? 'datetime-local' : 'date'}
                 value={proximoSeguimiento}
                 onChange={(e) => handleSeguimientoChange(e.target.value)}
                 className="w-full text-sm px-3 py-2 rounded-md outline-none"

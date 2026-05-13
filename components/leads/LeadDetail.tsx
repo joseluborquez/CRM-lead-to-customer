@@ -47,9 +47,10 @@ function FlagRow({ label, value }: { label: string; value: boolean }) {
 
 export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
   const [estado, setEstado] = useState<EstadoLead>(lead.estado)
+  const needsTime = lead.tipo_lead === 'Ultra Hot' || lead.tipo_lead === 'Hot'
   const [proximoSeguimiento, setProximoSeguimiento] = useState(
     lead.proximo_seguimiento
-      ? format(new Date(lead.proximo_seguimiento), 'yyyy-MM-dd')
+      ? format(new Date(lead.proximo_seguimiento), needsTime ? "yyyy-MM-dd'T'HH:mm" : 'yyyy-MM-dd')
       : ''
   )
   const [saving, setSaving] = useState(false)
@@ -277,9 +278,14 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
         <section className="p-5" style={{ borderBottom: '1px solid var(--border)' }}>
           <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
             Próximo Seguimiento
+            {needsTime && (
+              <span className="ml-2 normal-case font-normal" style={{ color: 'var(--accent-violet)' }}>
+                · con hora
+              </span>
+            )}
           </h3>
           <input
-            type="date"
+            type={needsTime ? 'datetime-local' : 'date'}
             value={proximoSeguimiento}
             onChange={(e) => handleSeguimientoChange(e.target.value)}
             className="w-full text-sm px-3 py-2 rounded-md outline-none"
