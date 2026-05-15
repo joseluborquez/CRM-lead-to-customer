@@ -304,6 +304,7 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
           </h3>
           <FlagRow label="Primer correo enviado" value={lead.primer_correo_enviado} />
           <FlagRow label="Primer WhatsApp enviado" value={lead.primer_contacto_whatsapp_enviado} />
+          <FlagRow label="Segundo WhatsApp enviado" value={lead.segundo_whatsapp_enviado} />
           <FlagRow label="Reunión Calendly agendada" value={lead.reunion_calendly_agendada} />
           <FlagRow label="Entró en nurturing" value={lead.entro_nurturing} />
           {lead.intento_contacto_primer_mensaje_whatsapp > 0 && (
@@ -317,6 +318,35 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
             </div>
           )}
         </section>
+
+        {/* WhatsApp */}
+        {(lead.resumen_whatsapp || lead.respuesta_whatsapp || lead.respuesta_objecion_agendamiento) && (
+          <section className="p-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+              WhatsApp
+            </h3>
+            <div className="flex flex-col gap-3">
+              {lead.resumen_whatsapp && (
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Resumen WhatsApp</span>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{lead.resumen_whatsapp}</p>
+                </div>
+              )}
+              {lead.respuesta_whatsapp && (
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Respuesta WhatsApp</span>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{lead.respuesta_whatsapp}</p>
+                </div>
+              )}
+              {lead.respuesta_objecion_agendamiento && (
+                <div>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Respuesta objeción agendamiento</span>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{lead.respuesta_objecion_agendamiento}</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Links Chatwoot */}
         {(lead.conversacion_chatwoot_id || lead.contacto_chatwoot_id) && (

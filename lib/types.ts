@@ -44,6 +44,10 @@ export interface Lead {
   primer_contacto_whatsapp_enviado: boolean
   intento_contacto_primer_mensaje_whatsapp: number
   respuesta_boton_whatsapp_primer_mensaje: string | null
+  resumen_whatsapp: string | null
+  segundo_whatsapp_enviado: boolean
+  respuesta_whatsapp: string | null
+  respuesta_objecion_agendamiento: string | null
   reunion_calendly_agendada: boolean
   fecha_auditoria: string | null
   estado_auditoria: string | null
