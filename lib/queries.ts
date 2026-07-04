@@ -1,5 +1,5 @@
 import { supabase as browserClient } from './supabase'
-import type { Lead, EstadoLead, LeadFiltros, MetricasDashboard } from './types'
+import type { Lead, EstadoLead, LeadFiltros, MetricasDashboard, MetricasFinancieras } from './types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 type Db = SupabaseClient
@@ -36,7 +36,16 @@ export async function getLeadById(id: string, db: Db = browserClient): Promise<L
 }
 
 export async function updateLeadEstado(id: string, estado: EstadoLead, db: Db = browserClient): Promise<void> {
-  const { error } = await db.from('pipeline').update({ estado }).eq('id', id)
+  const esCerrado = estado === 'Cerrado Ganado' || estado === 'Cerrado Perdido'
+  const { error } = await db
+    .from('pipeline')
+    .update({ estado, fecha_cierre: esCerrado ? new Date().toISOString() : null })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function updateLeadMontoCerrado(id: string, monto: number | null, db: Db = browserClient): Promise<void> {
+  const { error } = await db.from('pipeline').update({ monto_cerrado: monto }).eq('id', id)
   if (error) throw error
 }
 
@@ -88,6 +97,36 @@ export async function getMetricasDashboard(db: Db = browserClient): Promise<Metr
     cold: tipos.filter((l) => l.tipo_lead === 'Cold').length,
     reunionesHoy: reunionesRes.count ?? 0,
     cerradosEsteMes: cerradosRes.count ?? 0,
+  }
+}
+
+export async function getMetricasFinancieras(db: Db = browserClient): Promise<MetricasFinancieras> {
+  const hoy = new Date()
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString()
+
+  const { data, error } = await db
+    .from('pipeline')
+    .select('estado, monto_cerrado, fecha_cierre')
+    .in('estado', ['Cerrado Ganado', 'Cerrado Perdido'])
+
+  if (error) throw error
+
+  const rows = (data as Pick<Lead, 'estado' | 'monto_cerrado' | 'fecha_cierre'>[]) ?? []
+  const ganados = rows.filter((r) => r.estado === 'Cerrado Ganado')
+  const perdidos = rows.filter((r) => r.estado === 'Cerrado Perdido')
+
+  const ingresosTotales = ganados.reduce((sum, r) => sum + (r.monto_cerrado ?? 0), 0)
+  const ingresosEsteMes = ganados
+    .filter((r) => r.fecha_cierre && r.fecha_cierre >= inicioMes)
+    .reduce((sum, r) => sum + (r.monto_cerrado ?? 0), 0)
+
+  return {
+    ingresosTotales,
+    ingresosEsteMes,
+    ticketPromedio: ganados.length > 0 ? ingresosTotales / ganados.length : 0,
+    dealsGanados: ganados.length,
+    dealsPerdidos: perdidos.length,
+    tasaConversion: rows.length > 0 ? ganados.length / rows.length : 0,
   }
 }
 

@@ -53,6 +53,8 @@ export interface Lead {
   estado_auditoria: string | null
   entro_nurturing: boolean
   warm_email_step: number
+  monto_cerrado: number | null
+  fecha_cierre: string | null
 }
 
 export interface MetricasDashboard {
@@ -63,6 +65,15 @@ export interface MetricasDashboard {
   cold: number
   reunionesHoy: number
   cerradosEsteMes: number
+}
+
+export interface MetricasFinancieras {
+  ingresosTotales: number
+  ingresosEsteMes: number
+  ticketPromedio: number
+  dealsGanados: number
+  dealsPerdidos: number
+  tasaConversion: number
 }
 
 export interface LeadFiltros {

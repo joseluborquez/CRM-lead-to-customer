@@ -6,7 +6,7 @@ import { ArrowLeft, Phone, Mail, Globe, Check, ExternalLink, MessageSquare, Tras
 import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Lead, EstadoLead } from '@/lib/types'
-import { getLeadById, updateLeadEstado, updateLeadProximoSeguimiento, deleteLead } from '@/lib/queries'
+import { getLeadById, updateLeadEstado, updateLeadProximoSeguimiento, updateLeadMontoCerrado, deleteLead } from '@/lib/queries'
 import { TipoBadge } from '@/components/ui/TipoBadge'
 import { TopBar } from '@/components/layout/TopBar'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -68,6 +68,7 @@ export default function LeadDetailPage() {
   const [proximoSeguimiento, setProximoSeguimiento] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [montoCerrado, setMontoCerrado] = useState('')
 
   useEffect(() => {
     getLeadById(id)
@@ -75,6 +76,7 @@ export default function LeadDetailPage() {
         if (data) {
           setLead(data)
           setEstado(data.estado)
+          setMontoCerrado(data.monto_cerrado?.toString() ?? '')
           const needsTime = data.tipo_lead === 'Ultra Hot' || data.tipo_lead === 'Hot'
           setProximoSeguimiento(
             data.proximo_seguimiento
@@ -91,10 +93,23 @@ export default function LeadDetailPage() {
     setEstado(newEstado)
     setSaving(true)
     try {
+      const esCerrado = newEstado === 'Cerrado Ganado' || newEstado === 'Cerrado Perdido'
       await updateLeadEstado(id, newEstado)
-      setLead((prev) => prev ? { ...prev, estado: newEstado } : prev)
+      setLead((prev) => prev ? { ...prev, estado: newEstado, fecha_cierre: esCerrado ? new Date().toISOString() : null } : prev)
     } catch {
       if (lead) setEstado(lead.estado)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleMontoCerradoBlur() {
+    const monto = montoCerrado === '' ? null : Number(montoCerrado)
+    if (monto !== null && (Number.isNaN(monto) || monto < 0)) return
+    setSaving(true)
+    try {
+      await updateLeadMontoCerrado(id, monto)
+      setLead((prev) => prev ? { ...prev, monto_cerrado: monto } : prev)
     } finally {
       setSaving(false)
     }
@@ -346,6 +361,28 @@ export default function LeadDetailPage() {
                   <option key={e} value={e}>{e}</option>
                 ))}
               </select>
+
+              {estado === 'Cerrado Ganado' && (
+                <div className="mb-4">
+                  <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Monto cerrado (USD)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={montoCerrado}
+                    onChange={(e) => setMontoCerrado(e.target.value)}
+                    onBlur={handleMontoCerradoBlur}
+                    placeholder="0.00"
+                    className="w-full text-sm px-3 py-2 rounded-md outline-none mt-1"
+                    style={{
+                      background: 'var(--bg-hover)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--success)',
+                      fontFamily: 'var(--font-geist-mono)',
+                    }}
+                  />
+                </div>
+              )}
 
               <h3 className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
                 Próximo Seguimiento

@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale'
 import type { Lead, EstadoLead } from '@/lib/types'
 import { TipoBadge } from '@/components/ui/TipoBadge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { updateLeadEstado, updateLeadProximoSeguimiento, deleteLead } from '@/lib/queries'
+import { updateLeadEstado, updateLeadProximoSeguimiento, updateLeadMontoCerrado, deleteLead } from '@/lib/queries'
 
 const ESTADOS: EstadoLead[] = [
   'Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada',
@@ -58,6 +58,7 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [montoCerrado, setMontoCerrado] = useState(lead.monto_cerrado?.toString() ?? '')
 
   async function handleDelete() {
     setDeleting(true)
@@ -74,10 +75,23 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
     setEstado(newEstado)
     setSaving(true)
     try {
+      const esCerrado = newEstado === 'Cerrado Ganado' || newEstado === 'Cerrado Perdido'
       await updateLeadEstado(lead.id, newEstado)
-      onUpdated({ ...lead, estado: newEstado })
+      onUpdated({ ...lead, estado: newEstado, fecha_cierre: esCerrado ? new Date().toISOString() : null })
     } catch {
       setEstado(lead.estado)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleMontoCerradoBlur() {
+    const monto = montoCerrado === '' ? null : Number(montoCerrado)
+    if (monto !== null && (Number.isNaN(monto) || monto < 0)) return
+    setSaving(true)
+    try {
+      await updateLeadMontoCerrado(lead.id, monto)
+      onUpdated({ ...lead, monto_cerrado: monto })
     } finally {
       setSaving(false)
     }
@@ -299,6 +313,28 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
               <option key={e} value={e}>{e}</option>
             ))}
           </select>
+
+          {estado === 'Cerrado Ganado' && (
+            <div className="mt-3">
+              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Monto cerrado (USD)</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={montoCerrado}
+                onChange={(e) => setMontoCerrado(e.target.value)}
+                onBlur={handleMontoCerradoBlur}
+                placeholder="0.00"
+                className="w-full text-sm px-3 py-2 rounded-md outline-none mt-1"
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--success)',
+                  fontFamily: 'var(--font-geist-mono)',
+                }}
+              />
+            </div>
+          )}
         </section>
 
         {/* Próximo seguimiento */}
