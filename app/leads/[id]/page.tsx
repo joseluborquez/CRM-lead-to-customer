@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Phone, Mail, Globe, Check, ExternalLink, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Globe, Check, ExternalLink, MessageSquare, Trash2 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Lead, EstadoLead } from '@/lib/types'
-import { getLeadById, updateLeadEstado, updateLeadProximoSeguimiento } from '@/lib/queries'
+import { getLeadById, updateLeadEstado, updateLeadProximoSeguimiento, deleteLead } from '@/lib/queries'
 import { TipoBadge } from '@/components/ui/TipoBadge'
 import { TopBar } from '@/components/layout/TopBar'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 const ESTADOS: EstadoLead[] = [
   'Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada',
@@ -65,6 +66,8 @@ export default function LeadDetailPage() {
   const [saving, setSaving] = useState(false)
   const [estado, setEstado] = useState<EstadoLead>('Nuevo')
   const [proximoSeguimiento, setProximoSeguimiento] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     getLeadById(id)
@@ -94,6 +97,17 @@ export default function LeadDetailPage() {
       if (lead) setEstado(lead.estado)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteLead(id)
+      router.push('/leads')
+    } catch {
+      setDeleting(false)
+      setConfirmDelete(false)
     }
   }
 
@@ -131,17 +145,29 @@ export default function LeadDetailPage() {
       <TopBar titulo={lead.nombre_lead} />
 
       <div className="p-6">
-        {/* Back */}
-        <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm mb-6 transition-all duration-150"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)' }}
-        >
-          <ArrowLeft size={16} />
-          Volver a Leads
-        </button>
+        {/* Back + Delete */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-sm transition-all duration-150"
+            style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)' }}
+          >
+            <ArrowLeft size={16} />
+            Volver a Leads
+          </button>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-md transition-all duration-150"
+            style={{ color: 'var(--ultra-hot)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ultra-hot-soft)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <Trash2 size={14} />
+            Eliminar lead
+          </button>
+        </div>
 
         <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 340px' }}>
           {/* Main */}
@@ -420,6 +446,15 @@ export default function LeadDetailPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Eliminar lead"
+        message={`¿Seguro que quieres eliminar a "${lead.nombre_lead}"? Esta acción no se puede deshacer.`}
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }

@@ -40,6 +40,11 @@ export async function updateLeadEstado(id: string, estado: EstadoLead, db: Db = 
   if (error) throw error
 }
 
+export async function deleteLead(id: string, db: Db = browserClient): Promise<void> {
+  const { error } = await db.from('pipeline').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function updateLeadProximoSeguimiento(
   id: string,
   proximo_seguimiento: string | null,

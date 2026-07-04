@@ -74,6 +74,11 @@ export function LeadsTable({ leads }: LeadsTableProps) {
     setSelectedLead(updated)
   }
 
+  function handleLeadDeleted(id: string) {
+    setLocalLeads((prev) => prev.filter((l) => l.id !== id))
+    setSelectedLead(null)
+  }
+
   const headers: { label: string; key?: SortKey }[] = [
     { label: 'Lead ID' },
     { label: 'Nombre', key: 'nombre_lead' },
@@ -234,6 +239,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
             lead={selectedLead}
             onClose={() => setSelectedLead(null)}
             onUpdated={handleLeadUpdated}
+            onDeleted={handleLeadDeleted}
           />
         </>
       )}

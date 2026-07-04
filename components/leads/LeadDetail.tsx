@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Phone, Mail, Globe, ExternalLink, Check, MessageSquare } from 'lucide-react'
+import { X, Phone, Mail, Globe, ExternalLink, Check, MessageSquare, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Lead, EstadoLead } from '@/lib/types'
 import { TipoBadge } from '@/components/ui/TipoBadge'
-import { updateLeadEstado, updateLeadProximoSeguimiento } from '@/lib/queries'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { updateLeadEstado, updateLeadProximoSeguimiento, deleteLead } from '@/lib/queries'
 
 const ESTADOS: EstadoLead[] = [
   'Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada',
@@ -17,6 +18,7 @@ interface LeadDetailProps {
   lead: Lead
   onClose: () => void
   onUpdated: (lead: Lead) => void
+  onDeleted: (id: string) => void
 }
 
 function InfoRow({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -45,7 +47,7 @@ function FlagRow({ label, value }: { label: string; value: boolean }) {
   )
 }
 
-export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
+export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailProps) {
   const [estado, setEstado] = useState<EstadoLead>(lead.estado)
   const needsTime = lead.tipo_lead === 'Ultra Hot' || lead.tipo_lead === 'Hot'
   const [proximoSeguimiento, setProximoSeguimiento] = useState(
@@ -54,6 +56,19 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
       : ''
   )
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteLead(lead.id)
+      onDeleted(lead.id)
+    } catch {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
 
   async function handleEstadoChange(newEstado: EstadoLead) {
     setEstado(newEstado)
@@ -135,15 +150,27 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
             </span>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 rounded-md transition-all duration-150 shrink-0"
-          style={{ color: 'var(--text-muted)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-        >
-          <X size={18} />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="p-2 rounded-md transition-all duration-150"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ultra-hot-soft)'; e.currentTarget.style.color = 'var(--ultra-hot)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            title="Eliminar lead"
+          >
+            <Trash2 size={18} />
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-md transition-all duration-150"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}
@@ -371,6 +398,15 @@ export function LeadDetail({ lead, onClose, onUpdated }: LeadDetailProps) {
           </section>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Eliminar lead"
+        message={`¿Seguro que quieres eliminar a "${lead.nombre_lead}"? Esta acción no se puede deshacer.`}
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }
