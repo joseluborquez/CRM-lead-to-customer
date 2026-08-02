@@ -1,0 +1,173 @@
+{
+  "edges": [
+    {
+      "label": "next",
+      "source": "start",
+      "target": "agent_1782159548032",
+      "type": "default"
+    },
+    {
+      "label": "next",
+      "source": "agent_1782159548032",
+      "target": "send_text_1782160139705",
+      "type": "default"
+    }
+  ],
+  "nodes": [
+    {
+      "data": {
+        "config": {},
+        "display_name": "Start",
+        "node_type": "start"
+      },
+      "id": "start",
+      "position": {
+        "x": 100,
+        "y": 100
+      },
+      "type": "flow-node"
+    },
+    {
+      "data": {
+        "config": {
+          "ai_field_config": {
+            "message": {
+              "mode": "prompt",
+              "prompt": ""
+            }
+          },
+          "delay_seconds": 0,
+          "message": {
+            "$ai": {}
+          },
+          "phone_number_id": "597907523413541",
+          "provider_model_id": "8c6d57df-3f07-4290-b8a5-38047608c4df",
+          "provider_model_name": "claude-haiku-4-5",
+          "to_phone_number": null,
+          "whatsapp_config_id": "815ae4d5-c288-4e6e-8e50-6ab3237116a8"
+        },
+        "display_name": "Send Text Message",
+        "node_type": "send_text"
+      },
+      "id": "send_text_1782160139705",
+      "position": {
+        "x": 660,
+        "y": 320
+      },
+      "type": "flow-node"
+    },
+    {
+      "data": {
+        "config": {
+          "default_tool_configs": {},
+          "enabled_default_tools": [
+            "send_notification_to_user",
+            "send_media",
+            "get_execution_metadata",
+            "get_whatsapp_context",
+            "contact_conversations",
+            "get_current_datetime",
+            "save_variable",
+            "get_variable",
+            "ask_about_file",
+            "enter_waiting",
+            "complete_task",
+            "handoff_to_human"
+          ],
+          "flow_agent_app_integration_tools": [],
+          "flow_agent_function_tools": [
+            {
+              "description": "Consulta los platos disponibles del menú del restaurante.",
+              "function_name": "KAPSO SUPA",
+              "function_slug": "kapso-supa",
+              "input_schema": {
+                "properties": {
+                  "action": {
+                    "const": "consultar_menu",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "type": "object"
+              },
+              "name": "consultar_menu"
+            },
+            {
+              "description": "Crea una reserva de mesa en el restaurant. Usar solo después de confirmar con el cliente fecha, hora y número de personas.",
+              "function_name": "KAPSO SUPA",
+              "function_slug": "kapso-supa",
+              "input_schema": {
+                "properties": {
+                  "action": {
+                    "const": "crear_reserva",
+                    "type": "string"
+                  },
+                  "comentario": {
+                    "description": "Notas opcionales: alergias, ocasión especial, mesa preferida, etc.",
+                    "type": "string"
+                  },
+                  "fecha": {
+                    "description": "Fecha de la reserva en formato YYYY-MM-DD",
+                    "type": "string"
+                  },
+                  "hora": {
+                    "description": "Hora de la reserva en formato HH:MM (24h)",
+                    "type": "string"
+                  },
+                  "nombre": {
+                    "description": "Nombre completo del cliente",
+                    "type": "string"
+                  },
+                  "personas": {
+                    "description": "Número de comensales",
+                    "type": "integer"
+                  },
+                  "telefono": {
+                    "description": "Número de WhatsApp del cliente, con código de país",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "action",
+                  "nombre",
+                  "telefono",
+                  "fecha",
+                  "hora",
+                  "personas"
+                ],
+                "type": "object"
+              },
+              "name": "crear_reserva"
+            }
+          ],
+          "flow_agent_knowledge_bases": [],
+          "flow_agent_mcp_servers": [],
+          "flow_agent_resources": [],
+          "flow_agent_webhooks": [],
+          "max_iterations": 5,
+          "max_tokens": 500,
+          "message_delivery_mode": "auto_send_assistant_text",
+          "observer_prompt_mode": "analysis_only",
+          "provider_model_id": "8c6d57df-3f07-4290-b8a5-38047608c4df",
+          "provider_model_name": "claude-haiku-4-5",
+          "reasoning_effort": null,
+          "sandbox_allowed_outbound_hosts": [],
+          "sandbox_enabled": false,
+          "sandbox_network_mode": "allow_all",
+          "system_prompt": "\"Eres el asistente de reservas y pedidos de La Nona por WhatsApp. Saluda, responde preguntas del menú usando la herramienta consultar_menu, y crea reservas con la herramienta crear_reserva confirmando siempre fecha, hora y número de personas antes de guardar. Sé breve y cálido.\"",
+          "temperature": "0.0"
+        },
+        "display_name": "AI Agent",
+        "node_type": "agent"
+      },
+      "id": "agent_1782159548032",
+      "position": {
+        "x": 460,
+        "y": 100
+      },
+      "type": "flow-node"
+    }
+  ]
+}

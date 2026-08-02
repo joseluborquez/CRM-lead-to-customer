@@ -1,0 +1,13 @@
+{
+  "descripcion": "Busca al lead en el CRM por su teléfono. LLAMAR SIEMPRE AL INICIO de la conversación, antes de preguntar nada. Devuelve qué datos ya se tienen y cuáles faltan, para no repetir preguntas que el lead ya respondió.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "telefono": {
+        "type": "string",
+        "description": "Teléfono del lead. Si viene del contexto de WhatsApp se puede omitir."
+      }
+    },
+    "required": []
+  }
+}

@@ -1,0 +1,248 @@
+// ============================================================
+// GENERADO por kapso/build.mjs — NO EDITAR ACÁ.
+// Fuente: kapso/tools/buscar-lead.js
+// Incluye: _shared/supabase.js
+// ============================================================
+
+// ============================================================
+// Acceso a Supabase con service_role (bypass de RLS).
+// Secrets requeridos en Kapso: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// ============================================================
+
+function cabecerasSupabase(env) {
+  return {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+async function sbFetch(env, ruta, opciones = {}) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${ruta}`, {
+    ...opciones,
+    headers: { ...cabecerasSupabase(env), ...(opciones.headers || {}) },
+  })
+
+  const texto = await r.text()
+  if (!r.ok) throw new Error(`Supabase ${r.status}: ${texto}`)
+  return texto ? JSON.parse(texto) : null
+}
+
+/**
+ * Argumentos que mandó el agente.
+ *
+ * A veces el modelo envuelve los argumentos en otro nivel de `input`, sobre
+ * todo en tools con muchos campos. Pasó en producción: guardar_lead recibió
+ * {"input":{"input":{...}}} nueve veces seguidas y devolvió "falta el
+ * teléfono" en todas, sin crear nunca el lead. No es algo que el schema
+ * pueda impedir, así que se desenvuelve acá.
+ */
+function leerInput(body) {
+  let input = body?.input ?? {}
+  while (input && typeof input.input === 'object' && input.input !== null) {
+    input = input.input
+  }
+  return input ?? {}
+}
+
+/** Compara ignorando tildes, mayúsculas y espacios sobrantes. */
+function sinTildes(v) {
+  return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
+/**
+ * Devuelve el valor canónico del enum, o undefined si no matchea ninguno.
+ *
+ * El modelo escribe "Salud/Clinica" o "Aun no lo definimos" sin tilde cada
+ * tanto. Eso reventaría el CHECK de Postgres con un error críptico, así que
+ * se corrige acá contra la lista canónica.
+ */
+function normalizarEnum(valor, opciones) {
+  if (valor === null || valor === undefined || valor === '') return null
+  const v = sinTildes(valor)
+  return opciones.find((o) => sinTildes(o) === v)
+}
+
+/** Dígitos puros, igual que la función normalizar_telefono() de Postgres. */
+function normalizarTelefono(t) {
+  const d = String(t || '').replace(/\D/g, '')
+  return d || null
+}
+
+// Estados en los que el lead sigue vivo.
+const ESTADOS_ABIERTOS = ['Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada', 'Propuesta Enviada']
+
+/**
+ * El lead ABIERTO más reciente con ese teléfono.
+ *
+ * Excluye los cerrados a propósito: si un cliente vuelve por un segundo
+ * proyecto, hay que crearle una oportunidad nueva y no pisar el
+ * "Cerrado Ganado" del anterior.
+ */
+async function buscarLeadPorTelefono(env, telefono) {
+  const tel = normalizarTelefono(telefono)
+  if (!tel) return null
+
+  const estados = encodeURIComponent(`("${ESTADOS_ABIERTOS.join('","')}")`)
+  const filas = await sbFetch(
+    env,
+    `pipeline?telefono_e164=eq.${tel}&estado=in.${estados}&order=fecha_captura.desc&limit=1`
+  )
+  return filas?.[0] ?? null
+}
+
+async function crearLead(env, campos) {
+  const filas = await sbFetch(env, 'pipeline', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(campos),
+  })
+  return filas?.[0] ?? null
+}
+
+async function actualizarLead(env, id, campos) {
+  const filas = await sbFetch(env, `pipeline?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(campos),
+  })
+  return filas?.[0] ?? null
+}
+
+/** Respuesta JSON con el shape que espera Kapso para las function tools. */
+function json(cuerpo, vars) {
+  return new Response(JSON.stringify(vars ? { ...cuerpo, vars } : cuerpo), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function errorJson(mensaje, status = 200) {
+  // Se devuelve 200 con ok:false a propósito: un status de error hace que
+  // Kapso marque la tool como fallida y el agente pierde el detalle.
+  // Así el modelo lee el motivo y puede reaccionar en la conversación.
+  return new Response(JSON.stringify({ ok: false, error: mensaje }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+/**
+ * buscar_lead — primera tool que llama el agente en cada conversación.
+ *
+ * Devuelve tres cosas:
+ *  1. QUÉ MODO corresponde. No todo lead abierto se califica: a alguien con
+ *     propuesta enviada hay que derivarlo a un humano, no interrogarlo.
+ *  2. QUÉ FALTA por preguntar, para retomar sin repetir.
+ *  3. SI HAY HISTORIAL REAL. Que exista una ficha no significa que se haya
+ *     conversado: los leads del formulario viejo tienen ficha y cero charla.
+ *     Sin este dato el agente inventa continuidad ("lo que me contabas").
+ */
+
+// En orden de peso en el score. El agente pregunta de arriba hacia abajo.
+const CAMPOS_CALIFICACION = [
+  ['alcance_proyecto', 7],
+  ['especificidad_dolor', 6],
+  ['presupuesto_asignado', 5],
+  ['rol_lead', 4],
+  ['urgencia', 4],
+  ['madurez_sistemas', 4],
+  ['tamano_equipo', 3],
+]
+
+/**
+ * Qué debe hacer el agente según dónde está el lead en el pipeline.
+ * Los estados cerrados no llegan acá: buscarLeadPorTelefono los excluye.
+ */
+const MODO_POR_ESTADO = {
+  'Nuevo':             'calificar',
+  'Contactado':        'calificar',
+  'En Nurturing':      'calificar',
+  'Reunión Agendada':  'gestionar_reunion',
+  'Propuesta Enviada': 'derivar_a_humano',
+}
+
+const INSTRUCCION_POR_MODO = {
+  calificar:
+    'Calificá normalmente.',
+  gestionar_reunion:
+    'Este lead YA tiene una reunión agendada. NO lo vuelvas a calificar. ' +
+    'Atendé lo que necesite sobre la reunión: confirmar, reagendar o cancelar. ' +
+    'Si quiere reagendar, usá consultar_disponibilidad y agendar_reunion.',
+  derivar_a_humano:
+    'Este lead YA tiene una propuesta enviada: está en una etapa avanzada de ' +
+    'venta. NO lo califiques ni le hagas preguntas de diagnóstico. Saludá, ' +
+    'escuchá qué necesita, decile que José se contacta a la brevedad y llamá ' +
+    'a handoff_to_human.',
+}
+
+async function handler(request, env) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const input = leerInput(body)
+    const wa = body.whatsapp_context || {}
+
+    const telefono = input.telefono || wa.phone_number
+    if (!telefono) return errorJson('Falta el teléfono del lead.')
+
+    const lead = await buscarLeadPorTelefono(env, telefono)
+
+    if (!lead) {
+      return json({
+        ok: true,
+        existe: false,
+        modo: 'calificar',
+        hay_historial: false,
+        instruccion: 'Lead nuevo. Presentate y calificá desde cero.',
+        campos_pendientes: CAMPOS_CALIFICACION.map(([c]) => c),
+      })
+    }
+
+    const respondidos = CAMPOS_CALIFICACION
+      .map(([c]) => [c, lead[c]])
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+
+    const pendientes = CAMPOS_CALIFICACION
+      .map(([c]) => c)
+      .filter((c) => !respondidos.some(([r]) => r === c))
+
+    // ¿Hubo conversación real antes, o solo existe la ficha?
+    const tel = normalizarTelefono(telefono)
+    const previos = await sbFetch(
+      env,
+      `conversaciones?telefono_e164=eq.${tel}&select=id&limit=1`
+    )
+    const hayHistorial = (previos?.length ?? 0) > 0 || respondidos.length > 0
+
+    const modo = MODO_POR_ESTADO[lead.estado] ?? 'calificar'
+
+    return json({
+      ok: true,
+      existe: true,
+      modo,
+      instruccion: INSTRUCCION_POR_MODO[modo],
+      // Si es false, tratá la conversación como nueva aunque la ficha exista.
+      // NO digas "retomando lo que hablamos" ni "lo que me contabas".
+      hay_historial: hayHistorial,
+      lead_id: lead.id,
+      codigo: lead.lead_id,
+      nombre: lead.nombre_lead,
+      empresa: lead.nombre_empresa,
+      email: lead.email,
+      estado: lead.estado,
+      tipo_lead: lead.tipo_lead,
+      puntuacion: lead.puntuacion_lead,
+      origen: lead.origen,
+      fecha_reunion: lead.fecha_reunion,
+      calificacion_completa: lead.calificacion_completa,
+      campos_pendientes: pendientes,
+      ya_respondido: Object.fromEntries(respondidos),
+    }, {
+      lead_id: lead.id,
+      lead_nombre: lead.nombre_lead,
+      lead_modo: modo,
+    })
+  } catch (e) {
+    return errorJson(e.message)
+  }
+}
+

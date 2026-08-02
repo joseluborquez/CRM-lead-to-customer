@@ -1,0 +1,8 @@
+definition: definition.json
+name: RESTAURANTE
+slug: restaurante
+status: draft
+triggers:
+  - active: true
+    phoneNumberId: "597907523413541"
+    triggerType: inbound_message
