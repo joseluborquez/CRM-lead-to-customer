@@ -1,0 +1,72 @@
+{
+  "industria_empresa": [
+    "Salud/Clínica",
+    "Retail/Comercio",
+    "Logística/Transporte",
+    "Servicios profesionales",
+    "Manufactura",
+    "Construcción",
+    "Educación",
+    "Inmobiliaria",
+    "Fitness/Bienestar",
+    "Tecnología",
+    "Otro"
+  ],
+  "presupuesto_asignado": [
+    "Más de $5.000 USD",
+    "$2.000 - $5.000 USD",
+    "$1.000 - $2.000 USD",
+    "$500 - $1.000 USD",
+    "Menos de $500 USD",
+    "Aún no lo definimos"
+  ],
+  "urgencia": [
+    "Esta semana/URGENTE",
+    "Este mes",
+    "En los próximos 2-3 meses",
+    "No tengo un plazo definido"
+  ],
+  "rol_lead": [
+    "Dueño/Socio/CEO",
+    "Gerente/Director (con presupuesto)",
+    "Gerente",
+    "Empleado/Colaborador",
+    "Consultor externo"
+  ],
+  "estado": [
+    "Nuevo",
+    "Contactado",
+    "En Nurturing",
+    "Reunión Agendada",
+    "Propuesta Enviada",
+    "Cerrado Ganado",
+    "Cerrado Perdido",
+    "Descalificado"
+  ],
+  "alcance_proyecto": [
+    "Sistema completo o integración con ERP",
+    "Agente de IA para WhatsApp",
+    "Automatización de proceso",
+    "Web app interna",
+    "Todavía no está claro",
+    "Sitio web o e-commerce"
+  ],
+  "especificidad_dolor": [
+    "Nombra el proceso y las herramientas que usa",
+    "Nombra un proceso concreto",
+    "Habla de automatizar en general",
+    "No logra articular un problema"
+  ],
+  "madurez_sistemas": [
+    "ERP o software empresarial",
+    "Planillas y herramientas sueltas",
+    "Papel o nada",
+    "No sabe"
+  ],
+  "tamano_equipo": [
+    "Más de 20 personas",
+    "6 a 20 personas",
+    "2 a 5 personas",
+    "Solo"
+  ]
+}

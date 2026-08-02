@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Phone, Mail, Globe, Check, ExternalLink, MessageSquare, Trash2 } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Globe, Check, Trash2 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Lead, EstadoLead } from '@/lib/types'
@@ -10,6 +10,7 @@ import { getLeadById, updateLeadEstado, updateLeadProximoSeguimiento, updateLead
 import { TipoBadge } from '@/components/ui/TipoBadge'
 import { TopBar } from '@/components/layout/TopBar'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { colorDeScore } from '@/lib/utils'
 
 const ESTADOS: EstadoLead[] = [
   'Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada',
@@ -26,7 +27,7 @@ function InfoRow({ label, value }: { label: string; value: string | number | nul
   )
 }
 
-function FlagRow({ label, value }: { label: string; value: boolean }) {
+function FlagRow({ label, value }: { label: string; value: boolean | null }) {
   return (
     <div
       className="flex items-center justify-between py-2"
@@ -149,11 +150,7 @@ export default function LeadDetailPage() {
 
   const needsTime = lead.tipo_lead === 'Ultra Hot' || lead.tipo_lead === 'Hot'
 
-  const scoreColor =
-    (lead.puntuacion_lead ?? 0) >= 25 ? 'var(--ultra-hot)'
-    : (lead.puntuacion_lead ?? 0) >= 18 ? 'var(--hot)'
-    : (lead.puntuacion_lead ?? 0) >= 12 ? 'var(--warm)'
-    : 'var(--cold)'
+  const scoreColor = colorDeScore(lead.puntuacion_lead)
 
   return (
     <div className="flex flex-col min-h-full">
@@ -275,34 +272,26 @@ export default function LeadDetailPage() {
               <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--text-secondary)' }}>
                 Calificación
               </h2>
+              {/* Dimensiones que puntúan, en orden de peso */}
               <div className="grid grid-cols-2 gap-3">
-                <InfoRow label="Industria" value={lead.industria_empresa} />
-                <InfoRow label="Rol" value={lead.rol_lead} />
-                <InfoRow label="Leads mensuales" value={lead.leads_mensuales} />
-                <InfoRow label="Inversión publicidad" value={lead.inversion_publicidad} />
-                <InfoRow label="Presupuesto asignado" value={lead.presupuesto_asignado} />
-                <InfoRow label="Urgencia" value={lead.urgencia} />
-                <InfoRow label="Facturación mensual" value={lead.facturacion_mensual} />
-                <InfoRow label="Sistema de cierre" value={lead.sistema_cierre_leads} />
-                <InfoRow label="Fuente" value={lead.fuente} />
-                <InfoRow label="Awareness" value={lead.awareness} />
+                <InfoRow label="Alcance (7 pts)" value={lead.alcance_proyecto} />
+                <InfoRow label="Dolor (6 pts)" value={lead.especificidad_dolor} />
+                <InfoRow label="Presupuesto (5 pts)" value={lead.presupuesto_asignado} />
+                <InfoRow label="Rol (4 pts)" value={lead.rol_lead} />
+                <InfoRow label="Urgencia (4 pts)" value={lead.urgencia} />
+                <InfoRow label="Sistemas (4 pts)" value={lead.madurez_sistemas} />
+                <InfoRow label="Equipo (3 pts)" value={lead.tamano_equipo} />
               </div>
-              {lead.mayor_desafio_hoy && lead.mayor_desafio_hoy.length > 0 && (
-                <div className="mt-4">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Mayores desafíos</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {lead.mayor_desafio_hoy.map((d) => (
-                      <span
-                        key={d}
-                        className="text-xs px-2 py-0.5 rounded-md"
-                        style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-                      >
-                        {d}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+
+              {/* Contexto: no puntúa */}
+              <div
+                className="grid grid-cols-2 gap-3 mt-4 pt-4"
+                style={{ borderTop: '1px solid var(--border)' }}
+              >
+                <InfoRow label="Industria" value={lead.industria_empresa} />
+                <InfoRow label="Canal" value={lead.canal_adquisicion} />
+                <InfoRow label="Fuente" value={lead.fuente} />
+              </div>
               {lead.comentario_problematica && (
                 <div className="mt-4 p-3 rounded-md" style={{ background: 'var(--bg-hover)' }}>
                   <span className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>Problemática</span>
@@ -423,63 +412,19 @@ export default function LeadDetailPage() {
                   </span>
                 </div>
               )}
-              {lead.ultimo_contacto && (
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Último contacto</span>
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    {format(new Date(lead.ultimo_contacto), "d MMM yyyy", { locale: es })}
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* Automatización */}
+            {/* Estado de la calificación */}
             <div
               className="p-5 rounded-lg"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
             >
               <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-                Automatización
+                Calificación del agente
               </h3>
-              <FlagRow label="Primer correo enviado" value={lead.primer_correo_enviado} />
-              <FlagRow label="Primer WhatsApp enviado" value={lead.primer_contacto_whatsapp_enviado} />
-              <FlagRow label="Reunión Calendly agendada" value={lead.reunion_calendly_agendada} />
-              <FlagRow label="Entró en nurturing" value={lead.entro_nurturing} />
-              {lead.intento_contacto_primer_mensaje_whatsapp > 0 && (
-                <div className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  Intentos WA: {lead.intento_contacto_primer_mensaje_whatsapp}
-                </div>
-              )}
-              {lead.warm_email_step > 0 && (
-                <div className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                  Email step: {lead.warm_email_step}
-                </div>
-              )}
+              <FlagRow label="Calificación completa" value={lead.calificacion_completa} />
+              <FlagRow label="Reunión agendada" value={lead.fecha_reunion !== null} />
             </div>
-
-            {/* Links Chatwoot */}
-            {lead.conversacion_chatwoot_id && (
-              <div
-                className="p-5 rounded-lg"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-              >
-                <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-                  Links rápidos
-                </h3>
-                <a
-                  href={`#chatwoot-conv-${lead.conversacion_chatwoot_id}`}
-                  className="flex items-center gap-2 text-sm px-3 py-2 rounded-md"
-                  style={{
-                    background: 'var(--accent-violet-soft)',
-                    color: 'var(--accent-violet)',
-                  }}
-                >
-                  <MessageSquare size={14} />
-                  Ver en Chatwoot
-                  <ExternalLink size={12} className="ml-auto" />
-                </a>
-              </div>
-            )}
           </div>
         </div>
       </div>

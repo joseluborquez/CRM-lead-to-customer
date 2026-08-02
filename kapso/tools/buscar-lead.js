@@ -1,0 +1,121 @@
+// @incluir _shared/supabase.js
+
+/**
+ * buscar_lead — primera tool que llama el agente en cada conversación.
+ *
+ * Devuelve tres cosas:
+ *  1. QUÉ MODO corresponde. No todo lead abierto se califica: a alguien con
+ *     propuesta enviada hay que derivarlo a un humano, no interrogarlo.
+ *  2. QUÉ FALTA por preguntar, para retomar sin repetir.
+ *  3. SI HAY HISTORIAL REAL. Que exista una ficha no significa que se haya
+ *     conversado: los leads del formulario viejo tienen ficha y cero charla.
+ *     Sin este dato el agente inventa continuidad ("lo que me contabas").
+ */
+
+// En orden de peso en el score. El agente pregunta de arriba hacia abajo.
+const CAMPOS_CALIFICACION = [
+  ['alcance_proyecto', 7],
+  ['especificidad_dolor', 6],
+  ['presupuesto_asignado', 5],
+  ['rol_lead', 4],
+  ['urgencia', 4],
+  ['madurez_sistemas', 4],
+  ['tamano_equipo', 3],
+]
+
+/**
+ * Qué debe hacer el agente según dónde está el lead en el pipeline.
+ * Los estados cerrados no llegan acá: buscarLeadPorTelefono los excluye.
+ */
+const MODO_POR_ESTADO = {
+  'Nuevo':             'calificar',
+  'Contactado':        'calificar',
+  'En Nurturing':      'calificar',
+  'Reunión Agendada':  'gestionar_reunion',
+  'Propuesta Enviada': 'derivar_a_humano',
+}
+
+const INSTRUCCION_POR_MODO = {
+  calificar:
+    'Calificá normalmente.',
+  gestionar_reunion:
+    'Este lead YA tiene una reunión agendada. NO lo vuelvas a calificar. ' +
+    'Atendé lo que necesite sobre la reunión: confirmar, reagendar o cancelar. ' +
+    'Si quiere reagendar, usá consultar_disponibilidad y agendar_reunion.',
+  derivar_a_humano:
+    'Este lead YA tiene una propuesta enviada: está en una etapa avanzada de ' +
+    'venta. NO lo califiques ni le hagas preguntas de diagnóstico. Saludá, ' +
+    'escuchá qué necesita, decile que José se contacta a la brevedad y llamá ' +
+    'a handoff_to_human.',
+}
+
+async function handler(request, env) {
+  try {
+    const body = await request.json().catch(() => ({}))
+    const input = leerInput(body)
+    const wa = body.whatsapp_context || {}
+
+    const telefono = input.telefono || wa.phone_number
+    if (!telefono) return errorJson('Falta el teléfono del lead.')
+
+    const lead = await buscarLeadPorTelefono(env, telefono)
+
+    if (!lead) {
+      return json({
+        ok: true,
+        existe: false,
+        modo: 'calificar',
+        hay_historial: false,
+        instruccion: 'Lead nuevo. Presentate y calificá desde cero.',
+        campos_pendientes: CAMPOS_CALIFICACION.map(([c]) => c),
+      })
+    }
+
+    const respondidos = CAMPOS_CALIFICACION
+      .map(([c]) => [c, lead[c]])
+      .filter(([, v]) => v !== null && v !== undefined && v !== '')
+
+    const pendientes = CAMPOS_CALIFICACION
+      .map(([c]) => c)
+      .filter((c) => !respondidos.some(([r]) => r === c))
+
+    // ¿Hubo conversación real antes, o solo existe la ficha?
+    const tel = normalizarTelefono(telefono)
+    const previos = await sbFetch(
+      env,
+      `conversaciones?telefono_e164=eq.${tel}&select=id&limit=1`
+    )
+    const hayHistorial = (previos?.length ?? 0) > 0 || respondidos.length > 0
+
+    const modo = MODO_POR_ESTADO[lead.estado] ?? 'calificar'
+
+    return json({
+      ok: true,
+      existe: true,
+      modo,
+      instruccion: INSTRUCCION_POR_MODO[modo],
+      // Si es false, tratá la conversación como nueva aunque la ficha exista.
+      // NO digas "retomando lo que hablamos" ni "lo que me contabas".
+      hay_historial: hayHistorial,
+      lead_id: lead.id,
+      codigo: lead.lead_id,
+      nombre: lead.nombre_lead,
+      empresa: lead.nombre_empresa,
+      email: lead.email,
+      estado: lead.estado,
+      tipo_lead: lead.tipo_lead,
+      puntuacion: lead.puntuacion_lead,
+      origen: lead.origen,
+      fecha_reunion: lead.fecha_reunion,
+      calificacion_completa: lead.calificacion_completa,
+      campos_pendientes: pendientes,
+      ya_respondido: Object.fromEntries(respondidos),
+    }, {
+      lead_id: lead.id,
+      lead_nombre: lead.nombre_lead,
+      lead_modo: modo,
+    })
+  } catch (e) {
+    return errorJson(e.message)
+  }
+}

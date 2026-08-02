@@ -1,0 +1,8 @@
+definition: definition.json
+name: Nocode jose
+slug: nocode-jose
+status: active
+triggers:
+  - active: true
+    phoneNumberId: "1265445653310243"
+    triggerType: inbound_message

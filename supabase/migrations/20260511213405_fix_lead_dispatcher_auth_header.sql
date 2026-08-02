@@ -1,3 +1,7 @@
+-- NOTA: esta migración es histórica. El trigger y la función que definía
+-- fueron eliminados en 20260801164914_remove_make_integration.sql.
+-- Las credenciales quedaron expuestas en el repo público y están redactadas acá.
+
 -- ============================================================
 -- Lead Dispatcher — DB Trigger → Edge Function
 -- Migration: 002_lead_dispatcher_trigger.sql
@@ -11,8 +15,8 @@
 CREATE OR REPLACE FUNCTION dispatch_lead_to_make()
 RETURNS trigger AS $$
 DECLARE
-  v_secret   text := 'bb5b753ae2f790576cd12ac331da3d85e4af7f0a38383efa1b3b415a3021f766';
-  v_anon_key text := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb3N1aGNkdHB2emNhcmJrYnR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNTQxNTQsImV4cCI6MjA4ODgzMDE1NH0.fU-uPQYZAmKh-dYL5TMuhXI_SzYGUj4pg028VMCMhqY';
+  v_secret   text := '<<REDACTADO - credencial rotada>>';
+  v_anon_key text := '<<REDACTADO - anon key>>';
 BEGIN
   PERFORM net.http_post(
     url     := 'https://aiosuhcdtpvzcarbkbtv.supabase.co/functions/v1/lead-dispatcher',

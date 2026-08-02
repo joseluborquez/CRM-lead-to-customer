@@ -1,0 +1,23 @@
+{
+  "descripcion": "Crea la reunión en el calendario, genera el link de videollamada y le manda la invitación al lead. Llamar SOLO después de que el lead haya elegido explícitamente uno de los horarios de consultar_disponibilidad.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "inicio": {
+        "type": "string",
+        "description": "El campo \"inicio\" EXACTO del slot que eligió el lead, tal como lo devolvió consultar_disponibilidad. No lo reescribas ni lo reformatees."
+      },
+      "email": {
+        "type": "string",
+        "description": "Correo del lead, para mandarle la invitación de calendario."
+      },
+      "telefono": {
+        "type": "string",
+        "description": "Teléfono del lead. Si viene del contexto de WhatsApp se puede omitir."
+      }
+    },
+    "required": [
+      "inicio"
+    ]
+  }
+}

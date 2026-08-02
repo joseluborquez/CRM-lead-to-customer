@@ -1,0 +1,140 @@
+{
+  "descripcion": "Crea o actualiza el lead con la información recolectada. LLAMAR VARIAS VECES durante la conversación, apenas se confirme cada dato — no esperar al final. Postgres recalcula el puntaje solo. Enviá únicamente los campos que el lead haya confirmado; nunca inventes ni asumas valores.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "telefono": {
+        "type": "string",
+        "description": "Teléfono del lead. Si viene del contexto de WhatsApp se puede omitir."
+      },
+      "nombre_lead": {
+        "type": "string",
+        "description": "Nombre de la persona."
+      },
+      "nombre_empresa": {
+        "type": "string",
+        "description": "Nombre de su empresa o negocio."
+      },
+      "email": {
+        "type": "string",
+        "description": "Correo. Pedirlo antes de agendar para mandarle la invitación."
+      },
+      "alcance_proyecto": {
+        "type": "string",
+        "enum": [
+          "Sistema completo o integración con ERP",
+          "Agente de IA para WhatsApp",
+          "Automatización de proceso",
+          "Web app interna",
+          "Todavía no está claro",
+          "Sitio web o e-commerce"
+        ],
+        "description": "Qué tan grande es lo que necesita (7 pts, el de mayor peso). Si menciona integrar con un ERP o un sistema completo, es lo más valioso. Si todavía no está claro, usá \"Todavía no está claro\" en vez de adivinar."
+      },
+      "especificidad_dolor": {
+        "type": "string",
+        "enum": [
+          "Nombra el proceso y las herramientas que usa",
+          "Nombra un proceso concreto",
+          "Habla de automatizar en general",
+          "No logra articular un problema"
+        ],
+        "description": "TU EVALUACIÓN de qué tan concreto es el problema que describe (6 pts). NO se lo preguntes: juzgalo por cómo habla. Si nombra el proceso Y las herramientas (\"las cotizaciones, hoy en Excel\") es lo máximo. Si solo dice \"quiero automatizar\" sin más, es el nivel general."
+      },
+      "presupuesto_asignado": {
+        "type": "string",
+        "enum": [
+          "Más de $5.000 USD",
+          "$2.000 - $5.000 USD",
+          "$1.000 - $2.000 USD",
+          "$500 - $1.000 USD",
+          "Menos de $500 USD",
+          "Aún no lo definimos"
+        ],
+        "description": "Presupuesto para el proyecto (5 pts). Preguntalo al final y con naturalidad. Si no lo tiene definido usá \"Aún no lo definimos\": es normal no saber cuánto cuesta un software a medida y no penaliza casi nada."
+      },
+      "rol_lead": {
+        "type": "string",
+        "enum": [
+          "Dueño/Socio/CEO",
+          "Gerente/Director (con presupuesto)",
+          "Gerente",
+          "Empleado/Colaborador",
+          "Consultor externo"
+        ],
+        "description": "Su rol (4 pts). Determina si puede decidir la compra."
+      },
+      "urgencia": {
+        "type": "string",
+        "enum": [
+          "Esta semana/URGENTE",
+          "Este mes",
+          "En los próximos 2-3 meses",
+          "No tengo un plazo definido"
+        ],
+        "description": "En qué plazo quiere resolverlo (4 pts)."
+      },
+      "madurez_sistemas": {
+        "type": "string",
+        "enum": [
+          "ERP o software empresarial",
+          "Planillas y herramientas sueltas",
+          "Papel o nada",
+          "No sabe"
+        ],
+        "description": "Qué usa hoy para ese proceso (4 pts). Si nombra un ERP o software empresarial (SAP, HubSpot, Odoo, Defontana) es la mejor señal: hay con qué integrar y hay presupuesto."
+      },
+      "tamano_equipo": {
+        "type": "string",
+        "enum": [
+          "Más de 20 personas",
+          "6 a 20 personas",
+          "2 a 5 personas",
+          "Solo"
+        ],
+        "description": "Cuánta gente trabaja en la empresa (3 pts)."
+      },
+      "industria_empresa": {
+        "type": "string",
+        "enum": [
+          "Salud/Clínica",
+          "Retail/Comercio",
+          "Logística/Transporte",
+          "Servicios profesionales",
+          "Manufactura",
+          "Construcción",
+          "Educación",
+          "Inmobiliaria",
+          "Fitness/Bienestar",
+          "Tecnología",
+          "Otro"
+        ],
+        "description": "Rubro. Inferilo de cómo describe su negocio; NO lo preguntes."
+      },
+      "comentario_problematica": {
+        "type": "string",
+        "description": "Su situación EN SUS PROPIAS PALABRAS, con el mayor detalle posible. Qué proceso le duele, cuánto tiempo le consume, quién lo hace hoy."
+      },
+      "estado": {
+        "type": "string",
+        "enum": [
+          "Nuevo",
+          "Contactado",
+          "En Nurturing",
+          "Reunión Agendada",
+          "Descalificado"
+        ],
+        "description": "Estado en el pipeline. Usá \"Descalificado\" solo si claramente no es cliente potencial."
+      },
+      "calificacion_completa": {
+        "type": "boolean",
+        "description": "true cuando ya no queda nada relevante por preguntar."
+      },
+      "senales_conversacion": {
+        "type": "object",
+        "description": "Contexto que no entra en los campos estructurados: objeciones, competidores o proveedores mencionados, nivel de interés, tono."
+      }
+    },
+    "required": []
+  }
+}

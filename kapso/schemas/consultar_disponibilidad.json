@@ -1,0 +1,21 @@
+{
+  "descripcion": "Devuelve horarios REALES libres en el calendario. Llamar SIEMPRE antes de proponer una hora. NUNCA inventes ni supongas disponibilidad: si no llamaste a esta tool, no sabés si el horario existe.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "cantidad": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8,
+        "description": "Cuántas opciones ofrecer. Por defecto 3; más de 3 satura al lead."
+      },
+      "dias_adelante": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 30,
+        "description": "Cuántos días mirar. Por defecto 14."
+      }
+    },
+    "required": []
+  }
+}

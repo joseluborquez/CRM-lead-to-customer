@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Supabase temp files
 supabase/.temp/
+
+# Kapso: local del CLI
+kapso/.kapso/
