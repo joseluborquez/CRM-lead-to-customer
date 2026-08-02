@@ -8,6 +8,7 @@ import { Building2, Bell } from 'lucide-react'
 import Link from 'next/link'
 import type { Lead } from '@/lib/types'
 import { TipoBadge } from '@/components/ui/TipoBadge'
+import { colorDeScore } from '@/lib/utils'
 
 interface LeadCardProps {
   lead: Lead
@@ -26,10 +27,7 @@ function isFollowUpHoy(proximo: string | null): boolean {
 
 function ScoreChip({ score }: { score: number | null }) {
   if (score === null) return null
-  let color = 'var(--cold)'
-  if (score >= 25) color = 'var(--ultra-hot)'
-  else if (score >= 18) color = 'var(--hot)'
-  else if (score >= 12) color = 'var(--warm)'
+  const color = colorDeScore(score)
 
   return (
     <span

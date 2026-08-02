@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Phone, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Phone, ChevronUp, ChevronDown, ChevronsUpDown, Plus } from 'lucide-react'
 import type { Lead } from '@/lib/types'
 import { TipoBadge } from '@/components/ui/TipoBadge'
+import { OrigenBadge } from '@/components/ui/OrigenBadge'
 import { LeadDetail } from './LeadDetail'
+import { NuevoLeadForm } from './NuevoLeadForm'
+import { colorDeScore } from '@/lib/utils'
 
 interface LeadsTableProps {
   leads: Lead[]
@@ -17,10 +20,7 @@ type SortDir = 'asc' | 'desc'
 
 function ScoreBadge({ score }: { score: number | null }) {
   if (score === null) return <span style={{ color: 'var(--text-muted)' }}>—</span>
-  let color = 'var(--cold)'
-  if (score >= 25) color = 'var(--ultra-hot)'
-  else if (score >= 18) color = 'var(--hot)'
-  else if (score >= 12) color = 'var(--warm)'
+  const color = colorDeScore(score)
 
   return (
     <span
@@ -44,6 +44,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [localLeads, setLocalLeads] = useState<Lead[]>(leads)
+  const [creando, setCreando] = useState(false)
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -79,20 +80,41 @@ export function LeadsTable({ leads }: LeadsTableProps) {
     setSelectedLead(null)
   }
 
+  function handleLeadCreado(lead: Lead) {
+    setLocalLeads((prev) => [lead, ...prev])
+    setCreando(false)
+    setSelectedLead(lead)
+  }
+
   const headers: { label: string; key?: SortKey }[] = [
     { label: 'Lead ID' },
     { label: 'Nombre', key: 'nombre_lead' },
     { label: 'Empresa' },
     { label: 'WhatsApp' },
     { label: 'Tipo' },
+    { label: 'Origen' },
     { label: 'Score', key: 'puntuacion_lead' },
     { label: 'Estado' },
     { label: 'Próx. Seguimiento', key: 'proximo_seguimiento' },
     { label: '' },
   ]
 
+  const botonNuevo = (
+    <div className="flex justify-end">
+      <button
+        onClick={() => setCreando(true)}
+        className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md font-medium transition-all duration-150"
+        style={{ background: 'var(--accent-violet)', color: 'white' }}
+      >
+        <Plus size={15} />
+        Nuevo lead
+      </button>
+    </div>
+  )
+
   return (
-    <>
+    <div className="flex flex-col gap-4">
+      {botonNuevo}
       {sorted.length === 0 ? (
         <div
           className="py-16 text-center rounded-lg"
@@ -184,6 +206,9 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                       <TipoBadge tipo={lead.tipo_lead} size="sm" />
                     </td>
                     <td className="px-4 py-3">
+                      <OrigenBadge origen={lead.origen} size="sm" />
+                    </td>
+                    <td className="px-4 py-3">
                       <ScoreBadge score={lead.puntuacion_lead} />
                     </td>
                     <td className="px-4 py-3">
@@ -227,6 +252,10 @@ export function LeadsTable({ leads }: LeadsTableProps) {
         </div>
       )}
 
+      {creando && (
+        <NuevoLeadForm onCreado={handleLeadCreado} onCerrar={() => setCreando(false)} />
+      )}
+
       {/* Detail panel overlay */}
       {selectedLead && (
         <>
@@ -243,6 +272,6 @@ export function LeadsTable({ leads }: LeadsTableProps) {
           />
         </>
       )}
-    </>
+    </div>
   )
 }

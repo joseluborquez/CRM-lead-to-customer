@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Kapso Functions: corren en Cloudflare Workers, no en Next.
+    // El código es generado por kapso/build.mjs.
+    "kapso/**",
   ]),
 ]);
 

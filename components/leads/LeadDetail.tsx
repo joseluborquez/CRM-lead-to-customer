@@ -1,13 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Phone, Mail, Globe, ExternalLink, Check, MessageSquare, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { X, Phone, Mail, Globe, ExternalLink, Check, Video, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { Lead, EstadoLead } from '@/lib/types'
+import type { Lead, EstadoLead, Mensaje } from '@/lib/types'
 import { TipoBadge } from '@/components/ui/TipoBadge'
+import { OrigenBadge } from '@/components/ui/OrigenBadge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { updateLeadEstado, updateLeadProximoSeguimiento, updateLeadMontoCerrado, deleteLead } from '@/lib/queries'
+import { colorDeScore } from '@/lib/utils'
+import {
+  updateLeadEstado, updateLeadProximoSeguimiento, updateLeadMontoCerrado,
+  deleteLead, getMensajesDeLead,
+} from '@/lib/queries'
 
 const ESTADOS: EstadoLead[] = [
   'Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada',
@@ -31,7 +36,7 @@ function InfoRow({ label, value }: { label: string; value: string | number | nul
   )
 }
 
-function FlagRow({ label, value }: { label: string; value: boolean }) {
+function FlagRow({ label, value }: { label: string; value: boolean | null }) {
   return (
     <div className="flex items-center justify-between py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
       <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{label}</span>
@@ -59,6 +64,27 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [montoCerrado, setMontoCerrado] = useState(lead.monto_cerrado?.toString() ?? '')
+  const [mensajes, setMensajes] = useState<Mensaje[]>([])
+  const [cargandoMensajes, setCargandoMensajes] = useState(true)
+
+  useEffect(() => {
+    let vigente = true
+
+    async function cargarMensajes() {
+      setCargandoMensajes(true)
+      try {
+        const m = await getMensajesDeLead(lead.id)
+        if (vigente) setMensajes(m)
+      } catch {
+        if (vigente) setMensajes([])
+      } finally {
+        if (vigente) setCargandoMensajes(false)
+      }
+    }
+
+    cargarMensajes()
+    return () => { vigente = false }
+  }, [lead.id])
 
   async function handleDelete() {
     setDeleting(true)
@@ -127,6 +153,7 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
         <div className="flex flex-col gap-2 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <TipoBadge tipo={lead.tipo_lead} />
+            <OrigenBadge origen={lead.origen} />
             <span
               style={{
                 color: 'var(--text-muted)',
@@ -150,14 +177,7 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
               className="text-2xl font-bold"
               style={{
                 fontFamily: 'var(--font-geist-mono)',
-                color:
-                  lead.puntuacion_lead >= 25
-                    ? 'var(--ultra-hot)'
-                    : lead.puntuacion_lead >= 18
-                    ? 'var(--hot)'
-                    : lead.puntuacion_lead >= 12
-                    ? 'var(--warm)'
-                    : 'var(--cold)',
+                color: colorDeScore(lead.puntuacion_lead),
               }}
             >
               {lead.puntuacion_lead} pts
@@ -237,34 +257,24 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
             Calificación
           </h3>
+          {/* Dimensiones que puntúan, en orden de peso */}
           <div className="grid grid-cols-2 gap-3">
-            <InfoRow label="Industria" value={lead.industria_empresa} />
-            <InfoRow label="Rol" value={lead.rol_lead} />
-            <InfoRow label="Leads mensuales" value={lead.leads_mensuales} />
-            <InfoRow label="Inversión publicidad" value={lead.inversion_publicidad} />
-            <InfoRow label="Presupuesto" value={lead.presupuesto_asignado} />
-            <InfoRow label="Urgencia" value={lead.urgencia} />
-            <InfoRow label="Facturación mensual" value={lead.facturacion_mensual} />
-            <InfoRow label="Sistema de cierre" value={lead.sistema_cierre_leads} />
-            <InfoRow label="Fuente" value={lead.fuente} />
-            <InfoRow label="Awareness" value={lead.awareness} />
+            <InfoRow label="Alcance (7 pts)" value={lead.alcance_proyecto} />
+            <InfoRow label="Dolor (6 pts)" value={lead.especificidad_dolor} />
+            <InfoRow label="Presupuesto (5 pts)" value={lead.presupuesto_asignado} />
+            <InfoRow label="Rol (4 pts)" value={lead.rol_lead} />
+            <InfoRow label="Urgencia (4 pts)" value={lead.urgencia} />
+            <InfoRow label="Sistemas (4 pts)" value={lead.madurez_sistemas} />
+            <InfoRow label="Equipo (3 pts)" value={lead.tamano_equipo} />
           </div>
-          {lead.mayor_desafio_hoy && lead.mayor_desafio_hoy.length > 0 && (
-            <div className="mt-3">
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Mayores desafíos</span>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {lead.mayor_desafio_hoy.map((d) => (
-                  <span
-                    key={d}
-                    className="text-xs px-2 py-0.5 rounded-md"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}
-                  >
-                    {d}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+
+          {/* Contexto: no puntúa */}
+          <div className="grid grid-cols-2 gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+            <InfoRow label="Industria" value={lead.industria_empresa} />
+            <InfoRow label="Canal" value={lead.canal_adquisicion} />
+            <InfoRow label="Fuente" value={lead.fuente} />
+          </div>
+
           {lead.comentario_problematica && (
             <div className="mt-3">
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Problemática</span>
@@ -360,79 +370,115 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           />
         </section>
 
-        {/* Flags de automatización */}
+        {/* Estado de la calificación */}
         <section className="p-5" style={{ borderBottom: '1px solid var(--border)' }}>
           <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-            Automatización
+            Calificación del agente
           </h3>
-          <FlagRow label="Primer correo enviado" value={lead.primer_correo_enviado} />
-          <FlagRow label="Primer WhatsApp enviado" value={lead.primer_contacto_whatsapp_enviado} />
-          <FlagRow label="Segundo WhatsApp enviado" value={lead.segundo_whatsapp_enviado} />
-          <FlagRow label="Reunión Calendly agendada" value={lead.reunion_calendly_agendada} />
-          <FlagRow label="Entró en nurturing" value={lead.entro_nurturing} />
-          {lead.intento_contacto_primer_mensaje_whatsapp > 0 && (
-            <div className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Intentos WA: {lead.intento_contacto_primer_mensaje_whatsapp}
+          <FlagRow label="Calificación completa" value={lead.calificacion_completa} />
+          <FlagRow label="Reunión agendada" value={lead.fecha_reunion !== null} />
+        </section>
+
+        {/* Señales que el agente capturó de la conversación */}
+        {lead.senales_conversacion != null &&
+          typeof lead.senales_conversacion === 'object' &&
+          !Array.isArray(lead.senales_conversacion) &&
+          Object.keys(lead.senales_conversacion).length > 0 && (
+          <section className="p-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+              Señales de la conversación
+            </h3>
+            <div className="flex flex-col gap-2">
+              {Object.entries(lead.senales_conversacion).map(([clave, valor]) => (
+                <InfoRow
+                  key={clave}
+                  label={clave.replace(/_/g, ' ')}
+                  value={typeof valor === 'string' ? valor : JSON.stringify(valor)}
+                />
+              ))}
             </div>
-          )}
-          {lead.warm_email_step > 0 && (
-            <div className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-              Email step nurturing: {lead.warm_email_step}
+          </section>
+        )}
+
+        {/* Reunión */}
+        {(lead.fecha_reunion || lead.link_reunion) && (
+          <section className="p-5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+              Reunión
+            </h3>
+            <div className="flex flex-col gap-3">
+              {lead.fecha_reunion && (
+                <InfoRow
+                  label="Fecha y hora"
+                  value={format(new Date(lead.fecha_reunion), "EEEE d 'de' MMMM, HH:mm", { locale: es })}
+                />
+              )}
+              {lead.estado_reunion && <InfoRow label="Estado" value={lead.estado_reunion} />}
+              {lead.link_reunion && (
+                <a
+                  href={lead.link_reunion}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md self-start"
+                  style={{ background: 'var(--accent-violet-soft)', color: 'var(--accent-violet)' }}
+                >
+                  <Video size={14} />
+                  Unirse a la videollamada
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Transcripción de la conversación de WhatsApp */}
+        <section className="p-5">
+          <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
+            Conversación
+            {mensajes.length > 0 && (
+              <span className="ml-2 normal-case font-normal" style={{ color: 'var(--text-muted)' }}>
+                · {mensajes.length} mensajes
+              </span>
+            )}
+          </h3>
+
+          {cargandoMensajes ? (
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Cargando…</p>
+          ) : mensajes.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Sin conversación registrada.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {mensajes.map((m) => {
+                const esLead = m.rol === 'lead'
+                return (
+                  <div
+                    key={m.id}
+                    className="rounded-md px-3 py-2 max-w-[85%]"
+                    style={{
+                      alignSelf: esLead ? 'flex-start' : 'flex-end',
+                      background: esLead ? 'var(--bg-hover)' : 'var(--success-soft)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-medium" style={{ color: esLead ? 'var(--text-secondary)' : 'var(--success)' }}>
+                        {esLead ? (lead.nombre_lead || 'Lead') : m.rol === 'agente' ? 'Agente' : m.rol === 'humano' ? 'Tú' : 'Sistema'}
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {format(new Date(m.enviado_en), 'd MMM HH:mm', { locale: es })}
+                      </span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
+                      {m.tipo_mensaje === 'texto' ? m.contenido : `[${m.tipo_mensaje}] ${m.contenido}`.trim()}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           )}
         </section>
-
-        {/* WhatsApp */}
-        {(lead.resumen_whatsapp || lead.respuesta_whatsapp || lead.respuesta_objecion_agendamiento) && (
-          <section className="p-5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-              WhatsApp
-            </h3>
-            <div className="flex flex-col gap-3">
-              {lead.resumen_whatsapp && (
-                <div>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Resumen WhatsApp</span>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{lead.resumen_whatsapp}</p>
-                </div>
-              )}
-              {lead.respuesta_whatsapp && (
-                <div>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Respuesta WhatsApp</span>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{lead.respuesta_whatsapp}</p>
-                </div>
-              )}
-              {lead.respuesta_objecion_agendamiento && (
-                <div>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Respuesta objeción agendamiento</span>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{lead.respuesta_objecion_agendamiento}</p>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Links Chatwoot */}
-        {(lead.conversacion_chatwoot_id || lead.contacto_chatwoot_id) && (
-          <section className="p-5">
-            <h3 className="text-xs font-medium uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-              Links rápidos
-            </h3>
-            {lead.conversacion_chatwoot_id && (
-              <a
-                href={`#chatwoot-conv-${lead.conversacion_chatwoot_id}`}
-                className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md"
-                style={{
-                  background: 'var(--accent-violet-soft)',
-                  color: 'var(--accent-violet)',
-                }}
-              >
-                <MessageSquare size={14} />
-                Ver en Chatwoot
-                <ExternalLink size={12} />
-              </a>
-            )}
-          </section>
-        )}
       </div>
 
       <ConfirmDialog
