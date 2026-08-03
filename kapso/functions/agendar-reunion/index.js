@@ -251,6 +251,32 @@ async function crearEvento(env, {
   return googleFetch(env, url, { method: 'POST', body: JSON.stringify(cuerpo) })
 }
 
+/**
+ * Cancela un evento y avisa a los invitados.
+ *
+ * Al reagendar hay que llamar a esto sobre el evento anterior: si no, quedan
+ * los dos en el calendario y el lead recibe dos invitaciones sin saber cuál
+ * vale. Pasó en la primera prueba de reagendamiento.
+ *
+ * Es best-effort: si falla, la reunión nueva ya está creada y eso es lo que
+ * importa. Devuelve true/false en vez de tirar.
+ */
+async function cancelarEvento(env, eventoId) {
+  if (!eventoId) return false
+  const calendarId = encodeURIComponent(env.GOOGLE_CALENDAR_ID)
+  try {
+    await googleFetch(
+      env,
+      `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${encodeURIComponent(eventoId)}?sendUpdates=all`,
+      { method: 'DELETE' }
+    )
+    return true
+  } catch (e) {
+    console.error(`No se pudo cancelar el evento ${eventoId}:`, e.message)
+    return false
+  }
+}
+
 /** Link de Meet del evento, con fallback al htmlLink del calendario. */
 function linkDeReunion(evento) {
   return (
@@ -501,15 +527,18 @@ async function handler(request, env) {
     // impide dos vigentes por lead.
     const activas = await sbFetch(
       env,
-      `reuniones?lead_id=eq.${lead.id}&estado=in.("Pendiente","Confirmada")&select=id`
+      `reuniones?lead_id=eq.${lead.id}&estado=in.("Pendiente","Confirmada")&select=id,evento_calendar_id`
     )
-    const anterior = activas?.[0]?.id ?? null
+    const anterior = activas?.[0] ?? null
 
     if (anterior) {
-      await sbFetch(env, `reuniones?id=eq.${anterior}`, {
+      await sbFetch(env, `reuniones?id=eq.${anterior.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ estado: 'Reagendada', motivo: 'Reagendada por el lead' }),
       })
+      // Recién ahora que la nueva existe: cancelar la vieja en Google avisa
+      // al invitado y evita que queden dos reuniones en el calendario.
+      await cancelarEvento(env, anterior.evento_calendar_id)
     }
 
     await sbFetch(env, 'reuniones', {
@@ -522,7 +551,7 @@ async function handler(request, env) {
         link_reunion: link,
         evento_calendar_id: evento.id,
         creada_por: 'agente',
-        reemplaza_a: anterior,
+        reemplaza_a: anterior?.id ?? null,
       }),
     })
 

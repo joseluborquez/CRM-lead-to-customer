@@ -124,6 +124,32 @@ async function crearEvento(env, {
   return googleFetch(env, url, { method: 'POST', body: JSON.stringify(cuerpo) })
 }
 
+/**
+ * Cancela un evento y avisa a los invitados.
+ *
+ * Al reagendar hay que llamar a esto sobre el evento anterior: si no, quedan
+ * los dos en el calendario y el lead recibe dos invitaciones sin saber cuál
+ * vale. Pasó en la primera prueba de reagendamiento.
+ *
+ * Es best-effort: si falla, la reunión nueva ya está creada y eso es lo que
+ * importa. Devuelve true/false en vez de tirar.
+ */
+async function cancelarEvento(env, eventoId) {
+  if (!eventoId) return false
+  const calendarId = encodeURIComponent(env.GOOGLE_CALENDAR_ID)
+  try {
+    await googleFetch(
+      env,
+      `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${encodeURIComponent(eventoId)}?sendUpdates=all`,
+      { method: 'DELETE' }
+    )
+    return true
+  } catch (e) {
+    console.error(`No se pudo cancelar el evento ${eventoId}:`, e.message)
+    return false
+  }
+}
+
 /** Link de Meet del evento, con fallback al htmlLink del calendario. */
 function linkDeReunion(evento) {
   return (

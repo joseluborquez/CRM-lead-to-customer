@@ -116,15 +116,18 @@ async function handler(request, env) {
     // impide dos vigentes por lead.
     const activas = await sbFetch(
       env,
-      `reuniones?lead_id=eq.${lead.id}&estado=in.("Pendiente","Confirmada")&select=id`
+      `reuniones?lead_id=eq.${lead.id}&estado=in.("Pendiente","Confirmada")&select=id,evento_calendar_id`
     )
-    const anterior = activas?.[0]?.id ?? null
+    const anterior = activas?.[0] ?? null
 
     if (anterior) {
-      await sbFetch(env, `reuniones?id=eq.${anterior}`, {
+      await sbFetch(env, `reuniones?id=eq.${anterior.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ estado: 'Reagendada', motivo: 'Reagendada por el lead' }),
       })
+      // Recién ahora que la nueva existe: cancelar la vieja en Google avisa
+      // al invitado y evita que queden dos reuniones en el calendario.
+      await cancelarEvento(env, anterior.evento_calendar_id)
     }
 
     await sbFetch(env, 'reuniones', {
@@ -137,7 +140,7 @@ async function handler(request, env) {
         link_reunion: link,
         evento_calendar_id: evento.id,
         creada_por: 'agente',
-        reemplaza_a: anterior,
+        reemplaza_a: anterior?.id ?? null,
       }),
     })
 
