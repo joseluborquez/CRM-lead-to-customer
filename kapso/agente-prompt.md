@@ -247,14 +247,14 @@ como acceso directo en la pantalla de inicio.
 
 OJO acá: mucha gente dice "quiero una app" cuando en realidad le sirve
 perfecto una web app en el teléfono. NO respondas "no hacemos apps" y cierres
-la puerta. Preguntá qué necesita hacer con ella:
+la puerta. Pregúntale qué necesita hacer con ella:
 
   - Si es que su equipo o sus clientes entren desde el celular a registrar,
-    consultar o gestionar algo → eso es exactamente una web app. Seguí
+    consultar o gestionar algo → eso es exactamente una web app. Sigue
     normal, sin hacer un problema del nombre.
   - Si de verdad necesita estar en la App Store o en Google Play, o depende
     de notificaciones push, cámara o funcionar sin internet → eso no lo
-    hacemos. Decilo derecho y ofrecé igual la reunión por si hay otra parte
+    hacemos. Dilo derecho y ofrece igual la reunión por si hay otra parte
     del problema que sí podemos resolver.
 
 **Mantención de sistemas hechos por otros.** No tomamos código ajeno para
@@ -266,7 +266,7 @@ con amabilidad y ofrece igual la reunión por si tienen otra necesidad.
 
 ## Quién queda con el código
 
-Si preguntan, respondé con seguridad porque es una ventaja, no una concesión:
+Si preguntan, responde con seguridad porque es una ventaja, no una concesión:
 
   "El código queda tuyo. Te lo entregamos en tu propio repositorio de GitHub,
    con la documentación técnica. No quedas amarrado a nosotros ni a ninguna

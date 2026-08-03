@@ -66,7 +66,38 @@ if (systemPrompt.length < 3000) {
   )
 }
 if (!systemPrompt.startsWith('Eres el asistente')) {
-  throw new Error('El prompt no empieza como se espera. Revisá agente-prompt.md.')
+  throw new Error('El prompt no empieza como se espera. Revisa agente-prompt.md.')
+}
+
+// El prompt manda hablar en chileno y se escribió dos veces en voseo por
+// descuido. Se verifica al generar, en vez de descubrirlo en producción.
+//
+// Dos trampas que costaron encontrar:
+//
+// 1. El acento va OBLIGATORIO. Con `[áa]` esto marcaba "necesitas" y
+//    "Agendarle", que son tuteo perfectamente correcto.
+//
+// 2. NO se puede usar \b alrededor. En JavaScript \b se define sobre
+//    [A-Za-z0-9_] y `á` no es un carácter de palabra, así que el \b final
+//    nunca cierra después de una tilde — justo las formas que hay que
+//    detectar. Van lookarounds por letra en su lugar.
+const VOSEO = /(?<![a-záéíóúñ])(preguntá|contá|contame|decí|decile|decilo|seguí|ofrecé|agendá|agendale|devolvé|reconocé|fijate|mirá|dejá|poné|usá|elegí|guardá|llamá|revisá|anotá|respondé|aclarale|tenés|podés|querés|necesitás|sabés|hacés|sos|vos)(?![a-záéíóúñ])/i
+
+// Se saltan las líneas que definen la regla: nombran las formas prohibidas.
+const esLineaDeRegla = (l) =>
+  l.trim().startsWith('NUNCA:') || l.includes('nunca "vos"')
+
+const conVoseo = systemPrompt
+  .split('\n')
+  .map((linea, i) => ({ n: i + 1, linea }))
+  .filter(({ linea }) => !esLineaDeRegla(linea))
+  .filter(({ linea }) => VOSEO.test(linea))
+
+if (conVoseo.length) {
+  throw new Error(
+    'El prompt tiene que estar en español de Chile (tuteo). Voseo en:\n' +
+    conVoseo.map(({ n, linea }) => `  línea ${n}: ${linea.trim().slice(0, 70)}`).join('\n')
+  )
 }
 
 // ── IDs de las functions ─────────────────────────────────────
