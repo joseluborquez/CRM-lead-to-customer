@@ -28,41 +28,6 @@ async function sbFetch(env, ruta, opciones = {}) {
   return texto ? JSON.parse(texto) : null
 }
 
-/**
- * Argumentos que mandó el agente.
- *
- * A veces el modelo envuelve los argumentos en otro nivel de `input`, sobre
- * todo en tools con muchos campos. Pasó en producción: guardar_lead recibió
- * {"input":{"input":{...}}} nueve veces seguidas y devolvió "falta el
- * teléfono" en todas, sin crear nunca el lead. No es algo que el schema
- * pueda impedir, así que se desenvuelve acá.
- */
-function leerInput(body) {
-  let input = body?.input ?? {}
-  while (input && typeof input.input === 'object' && input.input !== null) {
-    input = input.input
-  }
-  return input ?? {}
-}
-
-/** Compara ignorando tildes, mayúsculas y espacios sobrantes. */
-function sinTildes(v) {
-  return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-}
-
-/**
- * Devuelve el valor canónico del enum, o undefined si no matchea ninguno.
- *
- * El modelo escribe "Salud/Clinica" o "Aun no lo definimos" sin tilde cada
- * tanto. Eso reventaría el CHECK de Postgres con un error críptico, así que
- * se corrige acá contra la lista canónica.
- */
-function normalizarEnum(valor, opciones) {
-  if (valor === null || valor === undefined || valor === '') return null
-  const v = sinTildes(valor)
-  return opciones.find((o) => sinTildes(o) === v)
-}
-
 /** Dígitos puros, igual que la función normalizar_telefono() de Postgres. */
 function normalizarTelefono(t) {
   const d = String(t || '').replace(/\D/g, '')

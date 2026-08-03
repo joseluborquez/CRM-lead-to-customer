@@ -370,22 +370,10 @@ function generarSlots(desde, diasAdelante = 14, horasDeAviso = 3) {
   const slots = []
   const piso = new Date(desde.getTime() + horasDeAviso * 3600_000)
 
-  // Se parte de la fecha LOCAL de `desde` y se avanza sobre el calendario,
-  // no sumando milisegundos.
-  //
-  // Antes se usaba `desde + 12h` como referencia del día para esquivar el
-  // salto de DST. Pero si el lead escribe pasado el mediodía UTC, esas 12
-  // horas caen en el día siguiente: al que escribía por la tarde nunca se le
-  // ofrecía un horario de ese mismo día.
-  const hoyLocal = partesLocales(desde)
-
   for (let d = 0; d <= diasAdelante; d++) {
-    // Aritmética de calendario pura: Date.UTC normaliza el desborde de mes.
-    const nominal = new Date(Date.UTC(hoyLocal.anio, hoyLocal.mes - 1, hoyLocal.dia + d))
-    const anio = nominal.getUTCFullYear()
-    const mes = nominal.getUTCMonth() + 1
-    const dia = nominal.getUTCDate()
-    const diaSemana = nominal.getUTCDay()
+    // Mediodía evita que el salto de DST corra el día calendario.
+    const refDia = new Date(desde.getTime() + d * 86_400_000 + 12 * 3600_000)
+    const { anio, mes, dia, diaSemana } = partesLocales(refDia)
 
     const ventana = VENTANAS[diaSemana]
     if (!ventana) continue

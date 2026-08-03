@@ -203,17 +203,8 @@ async function bloquesOcupados(env, desdeIso, hastaIso) {
 /**
  * Crea el evento con su propia sala de Meet e invita al lead.
  * `sendUpdates=all` hace que Google le mande la invitación por correo.
- *
- * OJO con `descripcion`: los invitados la VEN. Todo lo interno —puntaje,
- * presupuesto declarado, notas sobre el lead— va en `briefingInterno`, que
- * viaja en extendedProperties.private y no es visible para ellos.
- *
- * Se aprendió por las malas: la primera invitación real le mostró al lead
- * "Tipo: Hot (21 pts)" y su propio presupuesto.
  */
-async function crearEvento(env, {
-  inicioIso, finIso, titulo, descripcion, emailInvitado, briefingInterno,
-}) {
+async function crearEvento(env, { inicioIso, finIso, titulo, descripcion, emailInvitado }) {
   const calendarId = encodeURIComponent(env.GOOGLE_CALENDAR_ID)
   const url =
     `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events` +
@@ -241,40 +232,7 @@ async function crearEvento(env, {
 
   if (emailInvitado) cuerpo.attendees = [{ email: emailInvitado }]
 
-  // Privado del organizador: no aparece en la invitación del invitado.
-  if (briefingInterno) {
-    cuerpo.extendedProperties = {
-      private: { crm_briefing: String(briefingInterno).slice(0, 8000) },
-    }
-  }
-
   return googleFetch(env, url, { method: 'POST', body: JSON.stringify(cuerpo) })
-}
-
-/**
- * Cancela un evento y avisa a los invitados.
- *
- * Al reagendar hay que llamar a esto sobre el evento anterior: si no, quedan
- * los dos en el calendario y el lead recibe dos invitaciones sin saber cuál
- * vale. Pasó en la primera prueba de reagendamiento.
- *
- * Es best-effort: si falla, la reunión nueva ya está creada y eso es lo que
- * importa. Devuelve true/false en vez de tirar.
- */
-async function cancelarEvento(env, eventoId) {
-  if (!eventoId) return false
-  const calendarId = encodeURIComponent(env.GOOGLE_CALENDAR_ID)
-  try {
-    await googleFetch(
-      env,
-      `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${encodeURIComponent(eventoId)}?sendUpdates=all`,
-      { method: 'DELETE' }
-    )
-    return true
-  } catch (e) {
-    console.error(`No se pudo cancelar el evento ${eventoId}:`, e.message)
-    return false
-  }
 }
 
 /** Link de Meet del evento, con fallback al htmlLink del calendario. */
@@ -370,22 +328,10 @@ function generarSlots(desde, diasAdelante = 14, horasDeAviso = 3) {
   const slots = []
   const piso = new Date(desde.getTime() + horasDeAviso * 3600_000)
 
-  // Se parte de la fecha LOCAL de `desde` y se avanza sobre el calendario,
-  // no sumando milisegundos.
-  //
-  // Antes se usaba `desde + 12h` como referencia del día para esquivar el
-  // salto de DST. Pero si el lead escribe pasado el mediodía UTC, esas 12
-  // horas caen en el día siguiente: al que escribía por la tarde nunca se le
-  // ofrecía un horario de ese mismo día.
-  const hoyLocal = partesLocales(desde)
-
   for (let d = 0; d <= diasAdelante; d++) {
-    // Aritmética de calendario pura: Date.UTC normaliza el desborde de mes.
-    const nominal = new Date(Date.UTC(hoyLocal.anio, hoyLocal.mes - 1, hoyLocal.dia + d))
-    const anio = nominal.getUTCFullYear()
-    const mes = nominal.getUTCMonth() + 1
-    const dia = nominal.getUTCDate()
-    const diaSemana = nominal.getUTCDay()
+    // Mediodía evita que el salto de DST corra el día calendario.
+    const refDia = new Date(desde.getTime() + d * 86_400_000 + 12 * 3600_000)
+    const { anio, mes, dia, diaSemana } = partesLocales(refDia)
 
     const ventana = VENTANAS[diaSemana]
     if (!ventana) continue
