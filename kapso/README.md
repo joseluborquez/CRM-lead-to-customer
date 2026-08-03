@@ -42,6 +42,16 @@ Correr todo eso después de tocar `lib/types.ts`, el prompt o las migraciones.
 ⚠️ **`kapso build` antes de `kapso push`, siempre.** Sin eso el push sube el
 `definition.json` viejo y reporta "1 update" como si hubiera funcionado.
 
+⚠️ **`kapso pull --overwrite` pisa `functions/` con el código desplegado.**
+`functions/` es generado, no fuente: la fuente está en `_shared/` y `tools/`.
+Después de cualquier pull, corré `node kapso/build.mjs` antes de tocar nada.
+
+Pasó una vez: un arreglo en `_shared/agenda.js` se había construido y
+commiteado pero no desplegado. Un `pull --overwrite` posterior devolvió el
+código viejo a `functions/`, y como los tests leen de ahí, el fallo del
+suite fue lo que delató que el fix nunca había llegado a producción. Corré
+`npm test` después de cada pull.
+
 ## Puesta en marcha
 
 ### 1. Google Cloud
