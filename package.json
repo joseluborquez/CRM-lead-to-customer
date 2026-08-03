@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node kapso/tests/logica.test.mjs",
+    "test:integracion": "node kapso/tests/integracion.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
