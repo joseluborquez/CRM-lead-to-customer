@@ -238,6 +238,27 @@ export type Database = {
           },
         ]
       }
+      telefonos_bloqueados: {
+        Row: {
+          bloqueado_en: string
+          bloqueado_por: string
+          motivo: string | null
+          telefono_e164: string
+        }
+        Insert: {
+          bloqueado_en?: string
+          bloqueado_por?: string
+          motivo?: string | null
+          telefono_e164: string
+        }
+        Update: {
+          bloqueado_en?: string
+          bloqueado_por?: string
+          motivo?: string | null
+          telefono_e164?: string
+        }
+        Relationships: []
+      }
       historial_estado: {
         Row: {
           actor: string

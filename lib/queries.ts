@@ -369,3 +369,47 @@ export async function actualizarEstadoReunion(
   const { error } = await db.from('reuniones').update({ estado }).eq('id', reunionId)
   if (error) throw error
 }
+
+/**
+ * Bloquea un número: el agente deja de responderle por completo.
+ *
+ * Es una acción humana a propósito. El agente puede cerrar una
+ * conversación improductiva, pero no bloquear: un falso positivo
+ * automático dejaría afuera a un cliente real para siempre.
+ */
+export async function bloquearTelefono(
+  telefono: string,
+  motivo: string,
+  db: Db = browserClient
+): Promise<void> {
+  const normalizado = telefono.replace(/\D/g, '')
+  if (!normalizado) throw new Error('Teléfono inválido')
+
+  const { error } = await db
+    .from('telefonos_bloqueados')
+    .upsert({ telefono_e164: normalizado, motivo, bloqueado_por: 'humano' })
+  if (error) throw error
+}
+
+export async function desbloquearTelefono(telefono: string, db: Db = browserClient): Promise<void> {
+  const normalizado = telefono.replace(/\D/g, '')
+  const { error } = await db
+    .from('telefonos_bloqueados')
+    .delete()
+    .eq('telefono_e164', normalizado)
+  if (error) throw error
+}
+
+export async function estaBloqueado(telefono: string, db: Db = browserClient): Promise<boolean> {
+  const normalizado = telefono.replace(/\D/g, '')
+  if (!normalizado) return false
+
+  const { data, error } = await db
+    .from('telefonos_bloqueados')
+    .select('telefono_e164')
+    .eq('telefono_e164', normalizado)
+    .limit(1)
+
+  if (error) throw error
+  return (data?.length ?? 0) > 0
+}

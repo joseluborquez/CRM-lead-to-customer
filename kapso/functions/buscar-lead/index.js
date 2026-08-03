@@ -173,6 +173,25 @@ const INSTRUCCION_POR_MODO = {
     'venta. NO lo califiques ni le hagas preguntas de diagnóstico. Saludá, ' +
     'escuchá qué necesita, decile que José se contacta a la brevedad y llamá ' +
     'a handoff_to_human.',
+  cerrar:
+    'Ya hubo muchos mensajes con esta persona y no se logró extraer nada ' +
+    'concreto sobre su negocio ni su problema. Cerrá con amabilidad en UN ' +
+    'solo mensaje, dejale el correo de contacto por si más adelante quiere ' +
+    'retomar, y llamá a complete_task. No sigas preguntando.',
+}
+
+/** Muchos mensajes y cero información útil: no tiene sentido seguir. */
+async function esImproductiva(env, tel) {
+  try {
+    const r = await sbFetch(env, `rpc/conversacion_improductiva`, {
+      method: 'POST',
+      body: JSON.stringify({ p_telefono: tel }),
+    })
+    return r === true
+  } catch {
+    // Ante la duda se sigue atendiendo: cortarle a un lead real es peor.
+    return false
+  }
 }
 
 async function handler(request, env) {
@@ -183,6 +202,22 @@ async function handler(request, env) {
 
     const telefono = input.telefono || wa.phone_number
     if (!telefono) return errorJson('Falta el teléfono del lead.')
+
+    const tel = normalizarTelefono(telefono)
+
+    // Bloqueado: se corta antes de gastar un solo token más.
+    const bloqueado = await sbFetch(
+      env, `telefonos_bloqueados?telefono_e164=eq.${tel}&select=motivo&limit=1`
+    )
+    if (bloqueado?.length) {
+      return json({
+        ok: true,
+        modo: 'ignorar',
+        instruccion:
+          'Este número está bloqueado. NO respondas absolutamente nada — ' +
+          'ni un saludo ni una despedida. Llamá a complete_task de inmediato.',
+      })
+    }
 
     const lead = await buscarLeadPorTelefono(env, telefono)
 
@@ -206,14 +241,18 @@ async function handler(request, env) {
       .filter((c) => !respondidos.some(([r]) => r === c))
 
     // ¿Hubo conversación real antes, o solo existe la ficha?
-    const tel = normalizarTelefono(telefono)
     const previos = await sbFetch(
       env,
       `conversaciones?telefono_e164=eq.${tel}&select=id&limit=1`
     )
     const hayHistorial = (previos?.length ?? 0) > 0 || respondidos.length > 0
 
-    const modo = MODO_POR_ESTADO[lead.estado] ?? 'calificar'
+    let modo = MODO_POR_ESTADO[lead.estado] ?? 'calificar'
+
+    // Muchos mensajes y nada sustantivo extraído: no tiene sentido seguir.
+    if (modo === 'calificar' && await esImproductiva(env, tel)) {
+      modo = 'cerrar'
+    }
 
     return json({
       ok: true,

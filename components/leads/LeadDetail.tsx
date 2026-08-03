@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, Phone, Mail, Globe, ExternalLink, Check, Video, Trash2 } from 'lucide-react'
+import { X, Phone, Mail, Globe, ExternalLink, Check, Video, Trash2, Ban } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import type { Lead, EstadoLead, Mensaje } from '@/lib/types'
@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { colorDeScore } from '@/lib/utils'
 import {
   updateLeadEstado, updateLeadProximoSeguimiento, updateLeadMontoCerrado,
-  deleteLead, getMensajesDeLead,
+  deleteLead, getMensajesDeLead, bloquearTelefono, desbloquearTelefono, estaBloqueado,
 } from '@/lib/queries'
 
 const ESTADOS: EstadoLead[] = [
@@ -66,6 +66,8 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
   const [montoCerrado, setMontoCerrado] = useState(lead.monto_cerrado?.toString() ?? '')
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [cargandoMensajes, setCargandoMensajes] = useState(true)
+  const [bloqueado, setBloqueado] = useState(false)
+  const [confirmBloqueo, setConfirmBloqueo] = useState(false)
 
   useEffect(() => {
     let vigente = true
@@ -85,6 +87,36 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
     cargarMensajes()
     return () => { vigente = false }
   }, [lead.id])
+
+  useEffect(() => {
+    let vigente = true
+    async function cargarBloqueo() {
+      if (!lead.whatsapp) return
+      try {
+        const b = await estaBloqueado(lead.whatsapp)
+        if (vigente) setBloqueado(b)
+      } catch { /* no bloquea la vista */ }
+    }
+    cargarBloqueo()
+    return () => { vigente = false }
+  }, [lead.whatsapp])
+
+  async function alternarBloqueo() {
+    if (!lead.whatsapp) return
+    setSaving(true)
+    try {
+      if (bloqueado) {
+        await desbloquearTelefono(lead.whatsapp)
+        setBloqueado(false)
+      } else {
+        await bloquearTelefono(lead.whatsapp, `Bloqueado desde el CRM · ${lead.nombre_lead}`)
+        setBloqueado(true)
+      }
+      setConfirmBloqueo(false)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function handleDelete() {
     setDeleting(true)
@@ -185,6 +217,16 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {lead.whatsapp && (
+            <button
+              onClick={() => (bloqueado ? alternarBloqueo() : setConfirmBloqueo(true))}
+              className="p-2 rounded-md transition-all duration-150"
+              style={{ color: bloqueado ? 'var(--ultra-hot)' : 'var(--text-muted)' }}
+              title={bloqueado ? 'Número bloqueado — clic para desbloquear' : 'Bloquear número'}
+            >
+              <Ban size={18} />
+            </button>
+          )}
           <button
             onClick={() => setConfirmDelete(true)}
             className="p-2 rounded-md transition-all duration-150"
@@ -206,6 +248,16 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           </button>
         </div>
       </div>
+
+      {bloqueado && (
+        <div
+          className="px-5 py-2.5 text-sm flex items-center gap-2"
+          style={{ background: 'var(--ultra-hot-soft)', color: 'var(--ultra-hot)' }}
+        >
+          <Ban size={14} />
+          Número bloqueado. El agente no le responde.
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
@@ -480,6 +532,15 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           )}
         </section>
       </div>
+
+      <ConfirmDialog
+        open={confirmBloqueo}
+        title="Bloquear número"
+        message={`El agente dejará de responderle a ${lead.whatsapp}, sin siquiera saludar. El lead queda en el CRM y podés desbloquearlo cuando quieras.`}
+        loading={saving}
+        onConfirm={alternarBloqueo}
+        onCancel={() => setConfirmBloqueo(false)}
+      />
 
       <ConfirmDialog
         open={confirmDelete}
