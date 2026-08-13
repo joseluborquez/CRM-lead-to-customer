@@ -89,6 +89,36 @@ test('el presupuesto ya NO se le pregunta al lead', () => {
 })
 
 // ============================================================
+grupo('Contexto de WhatsApp')
+// Kapso lo manda anidado en `conversation`. El código leía las claves al
+// nivel de arriba, así que el fallback del teléfono nunca funcionó y
+// kapso_conversation_id se guardaba siempre en null.
+
+test('lee el teléfono y el id del objeto conversation', () => {
+  const ctx = guardar.contextoWhatsApp({
+    whatsapp_context: {
+      conversation: { id: 'conv-123', phone_number: '56973857345' },
+      messages: [],
+    },
+  })
+  igual(ctx.telefono, '56973857345')
+  igual(ctx.conversacionId, 'conv-123')
+})
+
+test('acepta también la forma plana, por si Kapso cambia', () => {
+  const ctx = guardar.contextoWhatsApp({
+    whatsapp_context: { phone_number: '56900000000', conversation_id: 'c-9' },
+  })
+  igual(ctx.telefono, '56900000000')
+  igual(ctx.conversacionId, 'c-9')
+})
+
+test('sin contexto devuelve nulls y no explota', () => {
+  igual(guardar.contextoWhatsApp({}), { telefono: null, conversacionId: null, phoneNumberId: null })
+  igual(guardar.contextoWhatsApp(undefined), { telefono: null, conversacionId: null, phoneNumberId: null })
+})
+
+// ============================================================
 grupo('Teléfonos')
 
 test('normaliza a dígitos puros', () => {

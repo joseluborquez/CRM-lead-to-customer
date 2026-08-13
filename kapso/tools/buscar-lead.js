@@ -71,9 +71,9 @@ async function handler(request, env) {
   try {
     const body = await request.json().catch(() => ({}))
     const input = leerInput(body)
-    const wa = body.whatsapp_context || {}
+    const wa = contextoWhatsApp(body)
 
-    const telefono = input.telefono || wa.phone_number
+    const telefono = input.telefono || wa.telefono
     if (!telefono) return errorJson('Falta el teléfono del lead.')
 
     const tel = normalizarTelefono(telefono)

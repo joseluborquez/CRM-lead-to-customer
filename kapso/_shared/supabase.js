@@ -39,6 +39,30 @@ function leerInput(body) {
   return input ?? {}
 }
 
+/**
+ * Contexto de WhatsApp de la conversación en curso.
+ *
+ * Kapso lo manda anidado: { conversation: { id, phone_number, ... }, messages }.
+ * El código leía `whatsapp_context.phone_number` y `.conversation_id`, que no
+ * existen — así que el fallback del teléfono nunca funcionó y
+ * `kapso_conversation_id` se guardaba siempre en null. Verificado contra un
+ * payload real el 2026-08-13.
+ *
+ * `contact_name` NO sirve como nombre del lead: es el nombre del perfil de
+ * WhatsApp, que suele ser el del dueño del teléfono y no el de quien escribe.
+ * En la conversación de prueba decía "José Luis Bórquez" mientras el lead se
+ * presentaba como Matías.
+ */
+function contextoWhatsApp(body) {
+  const wa = body?.whatsapp_context ?? {}
+  const c = wa.conversation ?? {}
+  return {
+    telefono: c.phone_number ?? wa.phone_number ?? null,
+    conversacionId: c.id ?? wa.conversation_id ?? null,
+    phoneNumberId: c.phone_number_id ?? wa.phone_number_id ?? null,
+  }
+}
+
 /** Compara ignorando tildes, mayúsculas y espacios sobrantes. */
 function sinTildes(v) {
   return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()

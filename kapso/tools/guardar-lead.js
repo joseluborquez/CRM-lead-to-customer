@@ -37,9 +37,9 @@ async function handler(request, env) {
   try {
     const body = await request.json().catch(() => ({}))
     const input = leerInput(body)
-    const wa = body.whatsapp_context || {}
+    const wa = contextoWhatsApp(body)
 
-    const telefono = input.telefono || wa.phone_number
+    const telefono = input.telefono || wa.telefono
     if (!telefono) return errorJson('Falta el teléfono del lead.')
 
     const campos = {}
@@ -91,8 +91,8 @@ async function handler(request, env) {
         whatsapp: telefono,
         origen: 'WhatsApp Agente',
         fuente: 'WhatsApp',
-        kapso_conversation_id: wa.conversation_id ?? null,
-        kapso_phone_number_id: wa.phone_number_id ?? null,
+        kapso_conversation_id: wa.conversacionId,
+        kapso_phone_number_id: wa.phoneNumberId,
       })
     }
 

@@ -45,6 +45,30 @@ function leerInput(body) {
   return input ?? {}
 }
 
+/**
+ * Contexto de WhatsApp de la conversación en curso.
+ *
+ * Kapso lo manda anidado: { conversation: { id, phone_number, ... }, messages }.
+ * El código leía `whatsapp_context.phone_number` y `.conversation_id`, que no
+ * existen — así que el fallback del teléfono nunca funcionó y
+ * `kapso_conversation_id` se guardaba siempre en null. Verificado contra un
+ * payload real el 2026-08-13.
+ *
+ * `contact_name` NO sirve como nombre del lead: es el nombre del perfil de
+ * WhatsApp, que suele ser el del dueño del teléfono y no el de quien escribe.
+ * En la conversación de prueba decía "José Luis Bórquez" mientras el lead se
+ * presentaba como Matías.
+ */
+function contextoWhatsApp(body) {
+  const wa = body?.whatsapp_context ?? {}
+  const c = wa.conversation ?? {}
+  return {
+    telefono: c.phone_number ?? wa.phone_number ?? null,
+    conversacionId: c.id ?? wa.conversation_id ?? null,
+    phoneNumberId: c.phone_number_id ?? wa.phone_number_id ?? null,
+  }
+}
+
 /** Compara ignorando tildes, mayúsculas y espacios sobrantes. */
 function sinTildes(v) {
   return String(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
@@ -438,7 +462,7 @@ async function handler(request, env) {
   try {
     const body = await request.json().catch(() => ({}))
     const input = leerInput(body)
-    const wa = body.whatsapp_context || {}
+    const wa = contextoWhatsApp(body)
     const vars = body.execution_context?.vars || {}
 
     const inicioIso = input.inicio
@@ -457,7 +481,7 @@ async function handler(request, env) {
     const fin = new Date(inicio.getTime() + 60 * 60_000)
 
     // El lead tiene que existir: el agente ya debería haberlo guardado.
-    const telefono = input.telefono || wa.phone_number
+    const telefono = input.telefono || wa.telefono
     let lead = null
     if (vars.lead_id) {
       const filas = await sbFetch(env, `pipeline?id=eq.${vars.lead_id}&limit=1`)

@@ -15,7 +15,7 @@ async function handler(request, env) {
   try {
     const body = await request.json().catch(() => ({}))
     const input = leerInput(body)
-    const wa = body.whatsapp_context || {}
+    const wa = contextoWhatsApp(body)
     const vars = body.execution_context?.vars || {}
 
     const inicioIso = input.inicio
@@ -34,7 +34,7 @@ async function handler(request, env) {
     const fin = new Date(inicio.getTime() + 60 * 60_000)
 
     // El lead tiene que existir: el agente ya debería haberlo guardado.
-    const telefono = input.telefono || wa.phone_number
+    const telefono = input.telefono || wa.telefono
     let lead = null
     if (vars.lead_id) {
       const filas = await sbFetch(env, `pipeline?id=eq.${vars.lead_id}&limit=1`)
