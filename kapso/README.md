@@ -154,6 +154,41 @@ kapso whatsapp conversations list --phone-number-id 1265445653310243
 
 o vía MCP: `whatsapp_conversations` con `action: set_status`, `status: "ended"`.
 
+## Verificar una conversación real
+
+```bash
+export KAPSO_API_KEY="..."          # Kapso → Settings → API keys
+node kapso/tests/verificar-agente.mjs
+```
+
+Lee los cuerpos de respuesta de las functions y avisa si alguna devolvió
+`ok:false`.
+
+Existe por una consecuencia directa de una decisión de diseño: las tools
+devuelven HTTP 200 aunque fallen, con `ok:false` en el cuerpo. Eso le
+permite al modelo leer el motivo y reaccionar, pero significa que **un
+fallo no genera ningún evento de error y la conversación se ve idéntica a
+una exitosa**.
+
+Ya pasó: `guardar_lead` devolvió "Falta el teléfono" nueve veces seguidas,
+nunca se creó el lead, y desde afuera solo se veía al agente conversando
+con normalidad. Leer el chat no alcanza.
+
+El chequeo que más importa no es "¿se llamó la tool?" sino "¿la tool
+surtió efecto?".
+
+### Sobre `kapso logs search`
+
+El CLI tiene búsqueda de logs, pero en la versión 0.17 solo acepta cinco
+fuentes —`all`, `external_api_log`, `whatsapp_webhook_event`, `flow_event`,
+`webhook_delivery`— y **no incluye las invocaciones de functions**, que es
+donde viven los cuerpos de respuesta. Para eso hay que ir al MCP de Kapso
+(`search_logs` con `source: function_invocation_event`) o a la Platform API
+directamente, que es lo que hace el verificador.
+
+En este proyecto `flow_event` vuelve vacío incluso después de
+conversaciones reales; no dependas de esa fuente para diagnosticar.
+
 ## Decisiones de diseño
 
 **Por qué los enums se generan desde `lib/types.ts`.** El scoring de Postgres
