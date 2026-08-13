@@ -17,7 +17,7 @@ export type Database = {
     Tables: {
       pipeline: {
         Row: {
-          alcance_proyecto: string | null
+          alcance_agente: string | null
           calificacion_completa: boolean
           canal_adquisicion: string | null
           comentario_problematica: string | null
@@ -26,9 +26,9 @@ export type Database = {
           estado: string | null
           estado_reunion: string | null
           evento_calendar_id: string | null
-          fecha_reunion: string | null
           fecha_captura: string | null
           fecha_cierre: string | null
+          fecha_reunion: string | null
           fuente: string | null
           id: string
           industria_empresa: string | null
@@ -37,7 +37,6 @@ export type Database = {
           lead_id: string | null
           link_pagina_web: string | null
           link_reunion: string | null
-          madurez_sistemas: string | null
           monto_cerrado: number | null
           nombre_empresa: string | null
           nombre_lead: string
@@ -48,15 +47,16 @@ export type Database = {
           research_insight: string | null
           rol_lead: string | null
           senales_conversacion: Json
-          tamano_equipo: string | null
+          sistemas_a_integrar: string | null
           telefono_e164: string | null
           tipo_lead: string | null
           updated_at: string
           urgencia: string | null
+          volumen_conversaciones: string | null
           whatsapp: string | null
         }
         Insert: {
-          alcance_proyecto?: string | null
+          alcance_agente?: string | null
           calificacion_completa?: boolean
           canal_adquisicion?: string | null
           comentario_problematica?: string | null
@@ -65,9 +65,9 @@ export type Database = {
           estado?: string | null
           estado_reunion?: string | null
           evento_calendar_id?: string | null
-          fecha_reunion?: string | null
           fecha_captura?: string | null
           fecha_cierre?: string | null
+          fecha_reunion?: string | null
           fuente?: string | null
           id?: string
           industria_empresa?: string | null
@@ -76,7 +76,6 @@ export type Database = {
           lead_id?: string | null
           link_pagina_web?: string | null
           link_reunion?: string | null
-          madurez_sistemas?: string | null
           monto_cerrado?: number | null
           nombre_empresa?: string | null
           nombre_lead: string
@@ -87,15 +86,16 @@ export type Database = {
           research_insight?: string | null
           rol_lead?: string | null
           senales_conversacion?: Json
-          tamano_equipo?: string | null
+          sistemas_a_integrar?: string | null
           telefono_e164?: string | null
           tipo_lead?: string | null
           updated_at?: string
           urgencia?: string | null
+          volumen_conversaciones?: string | null
           whatsapp?: string | null
         }
         Update: {
-          alcance_proyecto?: string | null
+          alcance_agente?: string | null
           calificacion_completa?: boolean
           canal_adquisicion?: string | null
           comentario_problematica?: string | null
@@ -104,9 +104,9 @@ export type Database = {
           estado?: string | null
           estado_reunion?: string | null
           evento_calendar_id?: string | null
-          fecha_reunion?: string | null
           fecha_captura?: string | null
           fecha_cierre?: string | null
+          fecha_reunion?: string | null
           fuente?: string | null
           id?: string
           industria_empresa?: string | null
@@ -115,7 +115,6 @@ export type Database = {
           lead_id?: string | null
           link_pagina_web?: string | null
           link_reunion?: string | null
-          madurez_sistemas?: string | null
           monto_cerrado?: number | null
           nombre_empresa?: string | null
           nombre_lead?: string
@@ -126,11 +125,12 @@ export type Database = {
           research_insight?: string | null
           rol_lead?: string | null
           senales_conversacion?: Json
-          tamano_equipo?: string | null
+          sistemas_a_integrar?: string | null
           telefono_e164?: string | null
           tipo_lead?: string | null
           updated_at?: string
           urgencia?: string | null
+          volumen_conversaciones?: string | null
           whatsapp?: string | null
         }
         Relationships: []
@@ -306,11 +306,10 @@ export type Database = {
         Args: {
           p_alcance: string
           p_dolor: string
-          p_equipo: string
-          p_madurez: string
-          p_presupuesto: string
           p_rol: string
+          p_sistemas: string
           p_urgencia: string
+          p_volumen: string
         }
         Returns: number
       }

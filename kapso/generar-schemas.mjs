@@ -28,15 +28,13 @@ function leerEnum(nombre) {
 }
 
 const E = {
-  alcance:     leerEnum('ALCANCES_PROYECTO'),
+  alcance:     leerEnum('ALCANCES_AGENTE'),
+  sistemas:    leerEnum('SISTEMAS_A_INTEGRAR'),
   dolor:       leerEnum('ESPECIFICIDADES_DOLOR'),
-  presupuesto: leerEnum('PRESUPUESTOS'),
+  volumen:     leerEnum('VOLUMENES_CONVERSACIONES'),
   rol:         leerEnum('ROLES'),
   urgencia:    leerEnum('URGENCIAS'),
-  madurez:     leerEnum('MADUREZ_SISTEMAS'),
-  equipo:      leerEnum('TAMANOS_EQUIPO'),
   industria:   leerEnum('INDUSTRIAS'),
-  canal:       leerEnum('CANALES_ADQUISICION'),
 }
 
 const telefono = {
@@ -69,27 +67,33 @@ const schemas = {
         email: { type: 'string', description: 'Correo. Pedirlo antes de agendar para mandarle la invitación.' },
 
         // ── Dimensiones que puntúan, en orden de peso ──
-        alcance_proyecto: {
+        alcance_agente: {
           type: 'string', enum: E.alcance,
           description:
-            'Qué tan grande es lo que necesita (7 pts, el de mayor peso). ' +
-            'Si menciona integrar con un ERP o un sistema completo, es lo más valioso. ' +
-            'Si todavía no está claro, usá "Todavía no está claro" en vez de adivinar.',
+            'Hasta dónde tiene que llegar el agente (7 pts, el de mayor peso). ' +
+            'Un bot que solo responde preguntas frecuentes vale poco; uno que ' +
+            'agenda, cobra e integra con sus sistemas es el mejor cliente.',
+        },
+        sistemas_a_integrar: {
+          type: 'string', enum: E.sistemas,
+          description:
+            'Con qué hay que conectar el agente (6 pts). Si menciona un sistema ' +
+            'con API —agenda, ERP, CRM, pasarela de pago— es la mejor señal: hay ' +
+            'dónde integrar y hay presupuesto.',
         },
         especificidad_dolor: {
           type: 'string', enum: E.dolor,
           description:
             'TU EVALUACIÓN de qué tan concreto es el problema que describe (6 pts). ' +
-            'NO se lo preguntes: juzgalo por cómo habla. ' +
-            'Si nombra el proceso Y las herramientas ("las cotizaciones, hoy en Excel") es lo máximo. ' +
-            'Si solo dice "quiero automatizar" sin más, es el nivel general.',
+            'NO se lo preguntes: júzgalo por cómo habla. Si nombra el proceso Y las ' +
+            'herramientas ("me preguntan precios todo el día por WhatsApp y anoto en ' +
+            'un cuaderno") es lo máximo.',
         },
-        presupuesto_asignado: {
-          type: 'string', enum: E.presupuesto,
+        volumen_conversaciones: {
+          type: 'string', enum: E.volumen,
           description:
-            'Presupuesto para el proyecto (5 pts). Preguntalo al final y con naturalidad. ' +
-            'Si no lo tiene definido usá "Aún no lo definimos": es normal no saber cuánto ' +
-            'cuesta un software a medida y no penaliza casi nada.',
+            'Cuántas consultas de WhatsApp recibe al mes (5 pts). Preguntalo con ' +
+            'naturalidad; si no sabe, usa "No sabe", que no penaliza casi nada.',
         },
         rol_lead: {
           type: 'string', enum: E.rol,
@@ -99,19 +103,12 @@ const schemas = {
           type: 'string', enum: E.urgencia,
           description: 'En qué plazo quiere resolverlo (4 pts).',
         },
-        madurez_sistemas: {
-          type: 'string', enum: E.madurez,
-          description:
-            'Qué usa hoy para ese proceso (4 pts). Si nombra un ERP o software empresarial ' +
-            '(SAP, HubSpot, Odoo, Defontana) es la mejor señal: hay con qué integrar y hay presupuesto.',
-        },
-        tamano_equipo: {
-          type: 'string', enum: E.equipo,
-          description: 'Cuánta gente trabaja en la empresa (3 pts).',
-        },
 
         // ── Contexto: no puntúa. Se INFIERE, nunca se pregunta ──
-        industria_empresa: { type: 'string', enum: E.industria, description: 'Rubro. Inferilo de cómo describe su negocio; NO lo preguntes.' },
+        industria_empresa: {
+          type: 'string', enum: E.industria,
+          description: 'Rubro. Inferilo de cómo describe su negocio; NO lo preguntes.',
+        },
 
         comentario_problematica: {
           type: 'string',

@@ -97,14 +97,42 @@ export interface LeadFiltros {
 // Fuente única: si cambian acá, cambian en la migración y en el agente.
 // ============================================================
 
-/** Tamaño del proyecto. La dimensión de mayor peso (0-7). */
-export const ALCANCES_PROYECTO = [
-  'Sistema completo o integración con ERP',
-  'Agente de IA para WhatsApp',
-  'Automatización de proceso',
-  'Web app interna',
+/**
+ * Hasta dónde llega el agente (0-7). La dimensión de mayor peso.
+ * Un bot de preguntas frecuentes no justifica el servicio; uno que agenda,
+ * cobra e integra sí.
+ */
+export const ALCANCES_AGENTE = [
+  'Agendar, cobrar e integrar con sus sistemas',
+  'Agendar en su calendario',
+  'Responder y derivar a una persona',
+  'Solo responder preguntas frecuentes',
   'Todavía no está claro',
-  'Sitio web o e-commerce',
+] as const
+
+/**
+ * Con qué hay que conectarlo (0-6). Tener API es la señal más fuerte:
+ * hay dónde integrar y hay presupuesto.
+ */
+export const SISTEMAS_A_INTEGRAR = [
+  'Varios sistemas propios o con API',
+  'Un sistema con API (agenda, ERP, CRM, pagos)',
+  'Solo planillas o herramientas sueltas',
+  'Nada, todo manual',
+  'No sabe',
+] as const
+
+/**
+ * Conversaciones de WhatsApp al mes (0-5). Driver de la mensualidad y del
+ * costo por cliente. Se registra pero NO descalifica: todavía no hay datos
+ * para fijar un piso.
+ */
+export const VOLUMENES_CONVERSACIONES = [
+  'Más de 500 al mes',
+  '150 a 500 al mes',
+  '50 a 150 al mes',
+  'Menos de 50 al mes',
+  'No sabe',
 ] as const
 
 /**
@@ -119,7 +147,10 @@ export const ESPECIFICIDADES_DOLOR = [
   'No logra articular un problema',
 ] as const
 
-/** Presupuesto (0-5). "Menos de $500" suma 1: no descalifica. */
+/**
+ * Ya NO puntúa: el precio del servicio es público ($250 + desde $150/mes).
+ * Se conserva para la historia de cierres y carga manual.
+ */
 export const PRESUPUESTOS = [
   'Más de $5.000 USD',
   '$2.000 - $5.000 USD',
@@ -127,19 +158,6 @@ export const PRESUPUESTOS = [
   '$500 - $1.000 USD',
   'Menos de $500 USD',
   'Aún no lo definimos',
-] as const
-
-/** Qué usa hoy (0-4). Señal de integrabilidad y de capacidad de pago. */
-export const MADUREZ_SISTEMAS = [
-  'ERP o software empresarial',
-  'Planillas y herramientas sueltas',
-  'Papel o nada',
-  'No sabe',
-] as const
-
-/** Proxy de capacidad de pago (0-3), más confiable que la facturación declarada. */
-export const TAMANOS_EQUIPO = [
-  'Más de 20 personas', '6 a 20 personas', '2 a 5 personas', 'Solo',
 ] as const
 
 /** Poder de decisión (0-4). */
@@ -179,14 +197,13 @@ export const CANALES_ADQUISICION = [
 
 /** Campos que puntúan, ordenados por peso. El agente prioriza en este orden. */
 export const CAMPOS_CALIFICACION = [
-  'alcance_proyecto',      // hasta 7 pts
-  'especificidad_dolor',   // hasta 6 pts
-  'presupuesto_asignado',  // hasta 5 pts
-  'rol_lead',              // hasta 4 pts
-  'urgencia',              // hasta 4 pts
-  'madurez_sistemas',      // hasta 4 pts
-  'tamano_equipo',         // hasta 3 pts
+  'alcance_agente',          // hasta 7 pts
+  'sistemas_a_integrar',     // hasta 6 pts
+  'especificidad_dolor',     // hasta 6 pts
+  'volumen_conversaciones',  // hasta 5 pts
+  'rol_lead',                // hasta 4 pts
+  'urgencia',                // hasta 4 pts
 ] as const
 
-/** Umbrales sobre 33 puntos. Deben coincidir con clasificar_tipo_lead(). */
-export const UMBRALES = { ultraHot: 24, hot: 17, warm: 10 } as const
+/** Umbrales sobre 32 puntos. Deben coincidir con clasificar_tipo_lead(). */
+export const UMBRALES = { ultraHot: 25, hot: 17, warm: 10 } as const

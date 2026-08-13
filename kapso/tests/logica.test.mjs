@@ -41,12 +41,14 @@ grupo('Normalización de enums')
 // Habría reventado los CHECK de Postgres con un error críptico.
 
 const I = guardar.ENUMS.industria_empresa
-const P = guardar.ENUMS.presupuesto_asignado
+const A = guardar.ENUMS.alcance_agente
 const R = guardar.ENUMS.rol_lead
+const V = guardar.ENUMS.volumen_conversaciones
 
 test('corrige tildes faltantes', () => {
   igual(guardar.normalizarEnum('Salud/Clinica', I), 'Salud/Clínica')
-  igual(guardar.normalizarEnum('Aun no lo definimos', P), 'Aún no lo definimos')
+  igual(guardar.normalizarEnum('Todavia no esta claro', A), 'Todavía no está claro')
+  igual(guardar.normalizarEnum('Mas de 500 al mes', V), 'Más de 500 al mes')
 })
 
 test('corrige la eñe', () => {
@@ -54,21 +56,36 @@ test('corrige la eñe', () => {
 })
 
 test('ignora mayúsculas y espacios', () => {
-  igual(guardar.normalizarEnum('  AÚN NO LO DEFINIMOS  ', P), 'Aún no lo definimos')
+  igual(guardar.normalizarEnum('  TODAVÍA NO ESTÁ CLARO  ', A), 'Todavía no está claro')
 })
 
 test('deja intacto lo que ya es correcto', () => {
   for (const v of I) igual(guardar.normalizarEnum(v, I), v)
+  for (const v of A) igual(guardar.normalizarEnum(v, A), v)
 })
 
 test('rechaza lo que no está en la lista', () => {
   igual(guardar.normalizarEnum('Minería', I), undefined)
-  igual(guardar.normalizarEnum('cualquier cosa', P), undefined)
+  igual(guardar.normalizarEnum('cualquier cosa', A), undefined)
 })
 
 test('vacío es null, no inválido', () => {
   igual(guardar.normalizarEnum('', I), null)
   igual(guardar.normalizarEnum(null, I), null)
+})
+
+test('las 6 dimensiones que puntúan están en el schema', () => {
+  for (const c of ['alcance_agente', 'sistemas_a_integrar', 'volumen_conversaciones',
+                   'rol_lead', 'urgencia']) {
+    verdadero(guardar.ENUMS[c], `falta el enum de ${c}`)
+  }
+  // especificidad_dolor también, pero se evalúa, no se pregunta.
+  verdadero(guardar.ENUMS.especificidad_dolor, 'falta especificidad_dolor')
+})
+
+test('el presupuesto ya NO se le pregunta al lead', () => {
+  // El precio está publicado: preguntarlo no aporta y gasta un turno.
+  igual(guardar.ENUMS.presupuesto_asignado, undefined)
 })
 
 // ============================================================

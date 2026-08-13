@@ -55,6 +55,7 @@ workflow.addNode("agent_1782159548032", {
     "max_iterations": 5,
     "max_tokens": 500,
     "reasoning_effort": null,
+    "prompt_cache_ttl": "5m",
     "observer_prompt_mode": "analysis_only",
     "message_delivery_mode": "auto_send_assistant_text",
     "enabled_default_tools": [

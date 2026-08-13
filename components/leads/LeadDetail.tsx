@@ -311,18 +311,18 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           </h3>
           {/* Dimensiones que puntúan, en orden de peso */}
           <div className="grid grid-cols-2 gap-3">
-            <InfoRow label="Alcance (7 pts)" value={lead.alcance_proyecto} />
+            <InfoRow label="Alcance del agente (7 pts)" value={lead.alcance_agente} />
+            <InfoRow label="Integraciones (6 pts)" value={lead.sistemas_a_integrar} />
             <InfoRow label="Dolor (6 pts)" value={lead.especificidad_dolor} />
-            <InfoRow label="Presupuesto (5 pts)" value={lead.presupuesto_asignado} />
+            <InfoRow label="Volumen WhatsApp (5 pts)" value={lead.volumen_conversaciones} />
             <InfoRow label="Rol (4 pts)" value={lead.rol_lead} />
             <InfoRow label="Urgencia (4 pts)" value={lead.urgencia} />
-            <InfoRow label="Sistemas (4 pts)" value={lead.madurez_sistemas} />
-            <InfoRow label="Equipo (3 pts)" value={lead.tamano_equipo} />
           </div>
 
           {/* Contexto: no puntúa */}
           <div className="grid grid-cols-2 gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
             <InfoRow label="Industria" value={lead.industria_empresa} />
+            <InfoRow label="Presupuesto" value={lead.presupuesto_asignado} />
             <InfoRow label="Canal" value={lead.canal_adquisicion} />
             <InfoRow label="Fuente" value={lead.fuente} />
           </div>

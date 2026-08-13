@@ -45,31 +45,32 @@ Saltarse esto es exactamente cómo `types.ts` terminó declarando `reunion_calen
 
 ### Scoring
 
-El negocio es **software a medida**: web apps internas, automatizaciones y agentes de IA para WhatsApp. El scoring v1 medía otro negocio (generación de leads) — ver la migración `20260801223957` para la evidencia que motivó el cambio.
+El negocio es **JLB Systems**: un solo servicio, agentes de WhatsApp construidos a medida sobre Kapso. Precio público — $250 + IVA de implementación, primer mes sin fee, desde $150 + IVA mensual, consumo a costo.
+
+El scoring se recalibró dos veces siguiendo al negocio: v2 pasó de generación de leads a software a medida (`20260801223957`), v3 de software a medida a solo agentes de WhatsApp (`20260813120000`). Cada migración documenta la evidencia.
 
 `puntuacion_lead` y `tipo_lead` los escribe el trigger `trg_pipeline_antes_de_escribir` (BEFORE INSERT OR UPDATE) llamando a `calcular_puntuacion_lead()` y `clasificar_tipo_lead()`. **No los escribas desde la app** — el trigger los sobreescribe.
 
-Siete dimensiones, 33 puntos:
+Seis dimensiones, 32 puntos:
 
 | Campo | Máx |
 |---|---:|
-| `alcance_proyecto` | 7 |
+| `alcance_agente` | 7 |
+| `sistemas_a_integrar` | 6 |
 | `especificidad_dolor` | 6 |
-| `presupuesto_asignado` | 5 |
+| `volumen_conversaciones` | 5 |
 | `rol_lead` | 4 |
 | `urgencia` | 4 |
-| `madurez_sistemas` | 4 |
-| `tamano_equipo` | 3 |
 
-Umbrales: ≥24 → Ultra Hot · ≥17 → Hot · ≥10 → Warm · resto Cold.
+Umbrales: ≥25 → Ultra Hot · ≥17 → Hot · ≥10 → Warm · resto Cold.
 
 **Los umbrales viven en tres lugares que deben coincidir:** `clasificar_tipo_lead()` en Postgres, `UMBRALES` en `lib/types.ts`, y `colorDeScore()` en `lib/utils.ts` (que lee `UMBRALES`). Antes estaban hardcodeados en 5 componentes y quedaron desfasados al recalibrar.
 
 Para cambiar los pesos: editá `calcular_puntuacion_lead` en una migración nueva y recalculá el histórico con `UPDATE pipeline SET id = id;`
 
-`industria_empresa`, `awareness`, `canal_adquisicion` y `fuente` son contexto: **no puntúan**.
+`industria_empresa`, `canal_adquisicion`, `fuente` y **`presupuesto_asignado`** son contexto: **no puntúan**. El presupuesto salió del scoring en v3 porque el precio del servicio es público; la columna se conserva por la historia de cierres.
 
-⚠️ El score depende de comparaciones de string exactas contra los valores de `lib/types.ts` (`ALCANCES_PROYECTO`, `ESPECIFICIDADES_DOLOR`, `PRESUPUESTOS`, …). Un valor que pase el CHECK de Postgres pero no matchee el CASE suma 0 en silencio y manda el lead a Cold. Esos arrays son la fuente única de verdad: los comparten el formulario, la migración y el input schema del agente de WhatsApp.
+⚠️ El score depende de comparaciones de string exactas contra los valores de `lib/types.ts` (`ALCANCES_AGENTE`, `SISTEMAS_A_INTEGRAR`, `VOLUMENES_CONVERSACIONES`, …). Un valor que pase el CHECK de Postgres pero no matchee el CASE suma 0 en silencio y manda el lead a Cold. Esos arrays son la fuente única de verdad: los comparten el formulario, la migración y el input schema del agente de WhatsApp.
 
 ### Campos que se confunden fácil
 

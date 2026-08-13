@@ -278,8 +278,8 @@ export async function getHistorialEstado(leadId: string, db: Db = browserClient)
 export type NuevoLead = Partial<
   Pick<Lead,
     | 'nombre_empresa' | 'whatsapp' | 'email' | 'link_pagina_web'
-    | 'alcance_proyecto' | 'especificidad_dolor' | 'presupuesto_asignado'
-    | 'rol_lead' | 'urgencia' | 'madurez_sistemas' | 'tamano_equipo'
+    | 'alcance_agente' | 'sistemas_a_integrar' | 'especificidad_dolor'
+    | 'volumen_conversaciones' | 'rol_lead' | 'urgencia' | 'presupuesto_asignado'
     | 'industria_empresa' | 'canal_adquisicion' | 'fuente'
     | 'comentario_problematica' | 'research_insight'
     | 'monto_cerrado' | 'fecha_cierre' | 'proximo_seguimiento'

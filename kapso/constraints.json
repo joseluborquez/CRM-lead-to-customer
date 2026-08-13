@@ -12,14 +12,6 @@
     "Tecnología",
     "Otro"
   ],
-  "presupuesto_asignado": [
-    "Más de $5.000 USD",
-    "$2.000 - $5.000 USD",
-    "$1.000 - $2.000 USD",
-    "$500 - $1.000 USD",
-    "Menos de $500 USD",
-    "Aún no lo definimos"
-  ],
   "urgencia": [
     "Esta semana/URGENTE",
     "Este mes",
@@ -43,30 +35,31 @@
     "Cerrado Perdido",
     "Descalificado"
   ],
-  "alcance_proyecto": [
-    "Sistema completo o integración con ERP",
-    "Agente de IA para WhatsApp",
-    "Automatización de proceso",
-    "Web app interna",
-    "Todavía no está claro",
-    "Sitio web o e-commerce"
-  ],
   "especificidad_dolor": [
     "Nombra el proceso y las herramientas que usa",
     "Nombra un proceso concreto",
     "Habla de automatizar en general",
     "No logra articular un problema"
   ],
-  "madurez_sistemas": [
-    "ERP o software empresarial",
-    "Planillas y herramientas sueltas",
-    "Papel o nada",
+  "alcance_agente": [
+    "Agendar, cobrar e integrar con sus sistemas",
+    "Agendar en su calendario",
+    "Responder y derivar a una persona",
+    "Solo responder preguntas frecuentes",
+    "Todavía no está claro"
+  ],
+  "sistemas_a_integrar": [
+    "Varios sistemas propios o con API",
+    "Un sistema con API (agenda, ERP, CRM, pagos)",
+    "Solo planillas o herramientas sueltas",
+    "Nada, todo manual",
     "No sabe"
   ],
-  "tamano_equipo": [
-    "Más de 20 personas",
-    "6 a 20 personas",
-    "2 a 5 personas",
-    "Solo"
+  "volumen_conversaciones": [
+    "Más de 500 al mes",
+    "150 a 500 al mes",
+    "50 a 150 al mes",
+    "Menos de 50 al mes",
+    "No sabe"
   ]
 }

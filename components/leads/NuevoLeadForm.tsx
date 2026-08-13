@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { Lead, EstadoLead } from '@/lib/types'
 import {
-  ALCANCES_PROYECTO, ESPECIFICIDADES_DOLOR, PRESUPUESTOS, ROLES, URGENCIAS,
-  MADUREZ_SISTEMAS, TAMANOS_EQUIPO, INDUSTRIAS, FUENTES, CANALES_ADQUISICION,
+  ALCANCES_AGENTE, SISTEMAS_A_INTEGRAR, VOLUMENES_CONVERSACIONES,
+  ESPECIFICIDADES_DOLOR, ROLES, URGENCIAS,
+  PRESUPUESTOS, INDUSTRIAS, FUENTES, CANALES_ADQUISICION,
 } from '@/lib/types'
 import { crearLead, type NuevoLead } from '@/lib/queries'
 
@@ -176,15 +177,18 @@ export function NuevoLeadForm({ onCreado, onCerrar }: Props) {
             <h3 className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               Calificación
             </h3>
-            <Campo label="Alcance del proyecto" hint="7 pts">
-              <Select value={campos.alcance_proyecto ?? ''} onChange={set('alcance_proyecto')} opciones={ALCANCES_PROYECTO} />
+            <Campo label="Alcance del agente" hint="7 pts">
+              <Select value={campos.alcance_agente ?? ''} onChange={set('alcance_agente')} opciones={ALCANCES_AGENTE} />
+            </Campo>
+            <Campo label="Sistemas a integrar" hint="6 pts">
+              <Select value={campos.sistemas_a_integrar ?? ''} onChange={set('sistemas_a_integrar')} opciones={SISTEMAS_A_INTEGRAR} />
             </Campo>
             <Campo label="Especificidad del dolor" hint="6 pts">
               <Select value={campos.especificidad_dolor ?? ''} onChange={set('especificidad_dolor')} opciones={ESPECIFICIDADES_DOLOR} />
             </Campo>
             <div className="grid grid-cols-2 gap-3">
-              <Campo label="Presupuesto" hint="5 pts">
-                <Select value={campos.presupuesto_asignado ?? ''} onChange={set('presupuesto_asignado')} opciones={PRESUPUESTOS} />
+              <Campo label="Volumen WhatsApp" hint="5 pts">
+                <Select value={campos.volumen_conversaciones ?? ''} onChange={set('volumen_conversaciones')} opciones={VOLUMENES_CONVERSACIONES} />
               </Campo>
               <Campo label="Rol" hint="4 pts">
                 <Select value={campos.rol_lead ?? ''} onChange={set('rol_lead')} opciones={ROLES} />
@@ -192,11 +196,8 @@ export function NuevoLeadForm({ onCreado, onCerrar }: Props) {
               <Campo label="Urgencia" hint="4 pts">
                 <Select value={campos.urgencia ?? ''} onChange={set('urgencia')} opciones={URGENCIAS} />
               </Campo>
-              <Campo label="Sistemas" hint="4 pts">
-                <Select value={campos.madurez_sistemas ?? ''} onChange={set('madurez_sistemas')} opciones={MADUREZ_SISTEMAS} />
-              </Campo>
-              <Campo label="Equipo" hint="3 pts">
-                <Select value={campos.tamano_equipo ?? ''} onChange={set('tamano_equipo')} opciones={TAMANOS_EQUIPO} />
+              <Campo label="Presupuesto" hint="no puntúa">
+                <Select value={campos.presupuesto_asignado ?? ''} onChange={set('presupuesto_asignado')} opciones={PRESUPUESTOS} />
               </Campo>
             </div>
             <Campo label="Problemática">

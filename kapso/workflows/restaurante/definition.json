@@ -147,6 +147,7 @@
           "max_tokens": 500,
           "message_delivery_mode": "auto_send_assistant_text",
           "observer_prompt_mode": "analysis_only",
+          "prompt_cache_ttl": "5m",
           "provider_model_id": "8c6d57df-3f07-4290-b8a5-38047608c4df",
           "provider_model_name": "claude-haiku-4-5",
           "reasoning_effort": null,

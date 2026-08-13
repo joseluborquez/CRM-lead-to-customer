@@ -140,13 +140,12 @@ function errorJson(mensaje, status = 200) {
 
 // En orden de peso en el score. El agente pregunta de arriba hacia abajo.
 const CAMPOS_CALIFICACION = [
-  ['alcance_proyecto', 7],
+  ['alcance_agente', 7],
+  ['sistemas_a_integrar', 6],
   ['especificidad_dolor', 6],
-  ['presupuesto_asignado', 5],
+  ['volumen_conversaciones', 5],
   ['rol_lead', 4],
   ['urgencia', 4],
-  ['madurez_sistemas', 4],
-  ['tamano_equipo', 3],
 ]
 
 /**

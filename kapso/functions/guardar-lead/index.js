@@ -142,13 +142,12 @@ function errorJson(mensaje, status = 200) {
 
 // GENERADO desde schemas/guardar_lead.json
 const ENUMS = {
-  alcance_proyecto: ["Sistema completo o integración con ERP","Agente de IA para WhatsApp","Automatización de proceso","Web app interna","Todavía no está claro","Sitio web o e-commerce"],
+  alcance_agente: ["Agendar, cobrar e integrar con sus sistemas","Agendar en su calendario","Responder y derivar a una persona","Solo responder preguntas frecuentes","Todavía no está claro"],
+  sistemas_a_integrar: ["Varios sistemas propios o con API","Un sistema con API (agenda, ERP, CRM, pagos)","Solo planillas o herramientas sueltas","Nada, todo manual","No sabe"],
   especificidad_dolor: ["Nombra el proceso y las herramientas que usa","Nombra un proceso concreto","Habla de automatizar en general","No logra articular un problema"],
-  presupuesto_asignado: ["Más de $5.000 USD","$2.000 - $5.000 USD","$1.000 - $2.000 USD","$500 - $1.000 USD","Menos de $500 USD","Aún no lo definimos"],
+  volumen_conversaciones: ["Más de 500 al mes","150 a 500 al mes","50 a 150 al mes","Menos de 50 al mes","No sabe"],
   rol_lead: ["Dueño/Socio/CEO","Gerente/Director (con presupuesto)","Gerente","Empleado/Colaborador","Consultor externo"],
   urgencia: ["Esta semana/URGENTE","Este mes","En los próximos 2-3 meses","No tengo un plazo definido"],
-  madurez_sistemas: ["ERP o software empresarial","Planillas y herramientas sueltas","Papel o nada","No sabe"],
-  tamano_equipo: ["Más de 20 personas","6 a 20 personas","2 a 5 personas","Solo"],
   industria_empresa: ["Salud/Clínica","Retail/Comercio","Logística/Transporte","Servicios profesionales","Manufactura","Construcción","Educación","Inmobiliaria","Fitness/Bienestar","Tecnología","Otro"],
   estado: ["Nuevo","Contactado","En Nurturing","Reunión Agendada","Descalificado"],
 }
@@ -156,8 +155,8 @@ const ENUMS = {
 const CAMPOS_PERMITIDOS = new Set([
   'nombre_lead', 'nombre_empresa', 'email', 'link_pagina_web',
   // Dimensiones que puntúan
-  'alcance_proyecto', 'especificidad_dolor', 'presupuesto_asignado',
-  'rol_lead', 'urgencia', 'madurez_sistemas', 'tamano_equipo',
+  'alcance_agente', 'sistemas_a_integrar', 'especificidad_dolor',
+  'volumen_conversaciones', 'rol_lead', 'urgencia', 'presupuesto_asignado',
   // Contexto
   'industria_empresa',
   'comentario_problematica', 'estado', 'calificacion_completa',
@@ -250,7 +249,7 @@ async function handler(request, env) {
           ? 'Lead calificado. Ofrecé la reunión con seguridad.'
           : lead.tipo_lead === 'Warm'
           ? 'Lead tibio. Ofrecé la reunión sin presionar.'
-          : 'Lead frío. No insistas, pero si quiere reunión agendásela igual.',
+          : 'Lead frío. No insistas, pero si quiere reunión agéndasela igual.',
     }, {
       lead_id: lead.id,
       lead_tipo: lead.tipo_lead,

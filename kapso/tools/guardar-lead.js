@@ -19,8 +19,8 @@
 const CAMPOS_PERMITIDOS = new Set([
   'nombre_lead', 'nombre_empresa', 'email', 'link_pagina_web',
   // Dimensiones que puntúan
-  'alcance_proyecto', 'especificidad_dolor', 'presupuesto_asignado',
-  'rol_lead', 'urgencia', 'madurez_sistemas', 'tamano_equipo',
+  'alcance_agente', 'sistemas_a_integrar', 'especificidad_dolor',
+  'volumen_conversaciones', 'rol_lead', 'urgencia', 'presupuesto_asignado',
   // Contexto
   'industria_empresa',
   'comentario_problematica', 'estado', 'calificacion_completa',
@@ -113,7 +113,7 @@ async function handler(request, env) {
           ? 'Lead calificado. Ofrecé la reunión con seguridad.'
           : lead.tipo_lead === 'Warm'
           ? 'Lead tibio. Ofrecé la reunión sin presionar.'
-          : 'Lead frío. No insistas, pero si quiere reunión agendásela igual.',
+          : 'Lead frío. No insistas, pero si quiere reunión agéndasela igual.',
     }, {
       lead_id: lead.id,
       lead_tipo: lead.tipo_lead,
