@@ -322,6 +322,13 @@ select count(*) from incidentes where not notificado;
 No hay servicio de correo aparte. El scope `gmail.send` viaja en el mismo
 refresh token que usa el agendamiento.
 
+⚠️ **La Gmail API hay que habilitarla aparte en Google Cloud.** Tener el
+scope no alcanza: son dos cosas distintas y la Calendar API estar habilitada
+no habilita la de Gmail. El síntoma es un 403 con el texto "Gmail API has
+not been used in project ... before or it is disabled", que trae el link
+para habilitarla. Después de habilitar hay que esperar dos o tres minutos a
+que propague; reintentar de inmediato devuelve el mismo error.
+
 ⚠️ **Un refresh token guarda los scopes con los que se emitió.** Si el tuyo
 se generó solo con el scope de calendario, Gmail responde 403
 ("insufficient authentication scopes") y las alertas no salen — el

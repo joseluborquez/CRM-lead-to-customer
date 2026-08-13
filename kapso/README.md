@@ -57,7 +57,8 @@ suite fue lo que delató que el fix nunca había llegado a producción. Corré
 
 ### 1. Google Cloud
 
-1. Proyecto nuevo → habilitar **Google Calendar API**
+1. Proyecto nuevo → habilitar **Google Calendar API** y **Gmail API**
+   (son dos productos distintos: habilitar una no habilita la otra)
 2. Pantalla de consentimiento OAuth → Externo → **PUBLICAR APLICACIÓN**
    (en "Testing" el refresh token expira a los 7 días)
 3. Credenciales → ID de cliente OAuth → **App de escritorio**

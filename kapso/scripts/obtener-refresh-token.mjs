@@ -13,6 +13,11 @@
  * Requiere que la app OAuth esté publicada "En producción" en Google Cloud.
  * En estado "Testing" el refresh token expira a los 7 días y el agendamiento
  * se cae solo.
+ *
+ * Y requiere tener habilitadas AMBAS APIs en el proyecto de Google Cloud:
+ * Calendar API y Gmail API. Son productos separados; el scope por sí solo no
+ * habilita nada. Si falta la de Gmail, el envío falla con un 403 que dice
+ * "Gmail API has not been used in project ... before or it is disabled".
  */
 
 import http from 'node:http'
