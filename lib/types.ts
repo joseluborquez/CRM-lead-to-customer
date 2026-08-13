@@ -12,6 +12,14 @@ export type EstadoLead =
   | 'Cerrado Perdido'
   | 'Descalificado'
 
+export type Moneda = 'USD' | 'CLP'
+
+/**
+ * Monedas de cierre. El servicio cotiza en USD, pero los cierres
+ * históricos están en pesos: sumarlos juntos da un número sin sentido.
+ */
+export const MONEDAS = ['USD', 'CLP'] as const
+
 export type OrigenLead = 'Formulario' | 'WhatsApp Agente' | 'Manual' | 'Outbound'
 
 export type EstadoReunion = 'Pendiente' | 'Confirmada' | 'Realizada' | 'No Show' | 'Cancelada'
@@ -28,11 +36,13 @@ export const ESTADOS_ABIERTOS: readonly EstadoLead[] = [
  * desincronice del esquema en silencio (ya pasó una vez: `types.ts` declaraba
  * `reunion_calendly_agendada` cuando la columna real es `reunion_agendada`).
  */
-export type Lead = Omit<Tables<'pipeline'>, 'estado' | 'tipo_lead' | 'origen' | 'estado_reunion'> & {
+export type Lead = Omit<Tables<'pipeline'>,
+  'estado' | 'tipo_lead' | 'origen' | 'estado_reunion' | 'moneda'> & {
   estado: EstadoLead
   tipo_lead: TipoLead | null
   origen: OrigenLead
   estado_reunion: EstadoReunion | null
+  moneda: Moneda
 }
 
 export type EstadoReunionHistorial =
@@ -68,10 +78,24 @@ export interface MetricasDashboard {
   cerradosEsteMes: number
 }
 
-export interface MetricasFinancieras {
-  ingresosTotales: number
-  ingresosEsteMes: number
+/**
+ * Los ingresos van POR MONEDA, no sumados.
+ *
+ * Sumar CLP y USD en un solo número da algo que no significa nada, y era
+ * lo que hacía el dashboard: mostraba 2.485.000 con etiqueta de dólares.
+ * Convertir exigiría un tipo de cambio con fecha, que es una decisión de
+ * negocio y no algo que deba inventar la capa de datos.
+ */
+export interface IngresosPorMoneda {
+  moneda: Moneda
+  total: number
+  esteMes: number
   ticketPromedio: number
+  cierres: number
+}
+
+export interface MetricasFinancieras {
+  porMoneda: IngresosPorMoneda[]
   dealsGanados: number
   dealsPerdidos: number
   tasaConversion: number

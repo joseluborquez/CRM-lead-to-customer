@@ -15,7 +15,7 @@ export default async function DashboardPage() {
       total: 0, ultraHot: 0, hot: 0, warm: 0, cold: 0, reunionesHoy: 0, cerradosEsteMes: 0,
     })),
     getMetricasFinancieras(db).catch(() => ({
-      ingresosTotales: 0, ingresosEsteMes: 0, ticketPromedio: 0, dealsGanados: 0, dealsPerdidos: 0, tasaConversion: 0,
+      porMoneda: [], dealsGanados: 0, dealsPerdidos: 0, tasaConversion: 0,
     })),
     getFollowUpsHoy(db).catch(() => []),
     getLeadsRecientes(10, db).catch(() => []),

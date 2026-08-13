@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { X, Phone, Mail, Globe, ExternalLink, Check, Video, Trash2, Ban } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { Lead, EstadoLead, Mensaje } from '@/lib/types'
+import type { Lead, EstadoLead, Mensaje, Moneda } from '@/lib/types'
+import { MONEDAS } from '@/lib/types'
 import { TipoBadge } from '@/components/ui/TipoBadge'
 import { OrigenBadge } from '@/components/ui/OrigenBadge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -64,6 +65,7 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [montoCerrado, setMontoCerrado] = useState(lead.monto_cerrado?.toString() ?? '')
+  const [moneda, setMoneda] = useState<Moneda>(lead.moneda ?? 'USD')
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [cargandoMensajes, setCargandoMensajes] = useState(true)
   const [bloqueado, setBloqueado] = useState(false)
@@ -148,8 +150,8 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
     if (monto !== null && (Number.isNaN(monto) || monto < 0)) return
     setSaving(true)
     try {
-      await updateLeadMontoCerrado(lead.id, monto)
-      onUpdated({ ...lead, monto_cerrado: monto })
+      await updateLeadMontoCerrado(lead.id, monto, moneda)
+      onUpdated({ ...lead, monto_cerrado: monto, moneda })
     } finally {
       setSaving(false)
     }
@@ -377,24 +379,42 @@ export function LeadDetail({ lead, onClose, onUpdated, onDeleted }: LeadDetailPr
           </select>
 
           {estado === 'Cerrado Ganado' && (
-            <div className="mt-3">
-              <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Monto cerrado (USD)</label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={montoCerrado}
-                onChange={(e) => setMontoCerrado(e.target.value)}
-                onBlur={handleMontoCerradoBlur}
-                placeholder="0.00"
-                className="w-full text-sm px-3 py-2 rounded-md outline-none mt-1"
-                style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--success)',
-                  fontFamily: 'var(--font-geist-mono)',
-                }}
-              />
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Monto cerrado</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={montoCerrado}
+                  onChange={(e) => setMontoCerrado(e.target.value)}
+                  onBlur={handleMontoCerradoBlur}
+                  placeholder="0"
+                  className="w-full text-sm px-3 py-2 rounded-md outline-none mt-1"
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--success)',
+                    fontFamily: 'var(--font-geist-mono)',
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Moneda</label>
+                <select
+                  value={moneda}
+                  onChange={(e) => { setMoneda(e.target.value as Moneda); }}
+                  onBlur={handleMontoCerradoBlur}
+                  className="w-full text-sm px-3 py-2 rounded-md outline-none mt-1"
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {MONEDAS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </div>
           )}
         </section>

@@ -6,7 +6,7 @@ import type { Lead, EstadoLead } from '@/lib/types'
 import {
   ALCANCES_AGENTE, SISTEMAS_A_INTEGRAR, VOLUMENES_CONVERSACIONES,
   ESPECIFICIDADES_DOLOR, ROLES, URGENCIAS,
-  PRESUPUESTOS, INDUSTRIAS, FUENTES, CANALES_ADQUISICION,
+  PRESUPUESTOS, INDUSTRIAS, FUENTES, CANALES_ADQUISICION, MONEDAS,
 } from '@/lib/types'
 import { crearLead, type NuevoLead } from '@/lib/queries'
 
@@ -80,7 +80,7 @@ interface Props {
 }
 
 export function NuevoLeadForm({ onCreado, onCerrar }: Props) {
-  const [campos, setCampos] = useState<Record<string, string>>({ estado: 'Nuevo' })
+  const [campos, setCampos] = useState<Record<string, string>>({ estado: 'Nuevo', moneda: 'USD' })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -240,9 +240,14 @@ export function NuevoLeadForm({ onCreado, onCerrar }: Props) {
             {/* Cargar clientes ya cerrados: sin monto, las métricas financieras
                 los cuentan como $0. */}
             {esCerrado && (
-              <div className="grid grid-cols-2 gap-3">
-                <Campo label="Monto cerrado (USD)">
-                  <Texto type="number" value={campos.monto_cerrado ?? ''} onChange={set('monto_cerrado')} placeholder="0.00" />
+              <div className="grid grid-cols-3 gap-3">
+                <Campo label="Monto cerrado">
+                  <Texto type="number" value={campos.monto_cerrado ?? ''} onChange={set('monto_cerrado')} placeholder="0" />
+                </Campo>
+                {/* La moneda es explícita: los cierres históricos son en pesos
+                    y el servicio cotiza en dólares. */}
+                <Campo label="Moneda">
+                  <Select value={campos.moneda ?? 'USD'} onChange={set('moneda')} opciones={MONEDAS} placeholder="USD" />
                 </Campo>
                 <Campo label="Fecha de cierre">
                   <Texto type="date" value={campos.fecha_cierre ?? ''} onChange={set('fecha_cierre')} />

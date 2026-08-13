@@ -1,7 +1,7 @@
 import { supabase as browserClient } from './supabase'
 import type {
   Lead, EstadoLead, LeadFiltros, MetricasDashboard, MetricasFinancieras,
-  Mensaje, CambioEstado, Reunion, EstadoReunionHistorial,
+  Mensaje, CambioEstado, Reunion, EstadoReunionHistorial, Moneda, IngresosPorMoneda,
 } from './types'
 import { ESTADOS_ABIERTOS } from './types'
 import type { Database } from './database.types'
@@ -94,8 +94,13 @@ export async function updateLeadEstado(id: string, estado: EstadoLead, db: Db = 
   if (error) throw error
 }
 
-export async function updateLeadMontoCerrado(id: string, monto: number | null, db: Db = browserClient): Promise<void> {
-  const { error } = await db.from('pipeline').update({ monto_cerrado: monto }).eq('id', id)
+export async function updateLeadMontoCerrado(
+  id: string,
+  monto: number | null,
+  moneda: Moneda = 'USD',
+  db: Db = browserClient
+): Promise<void> {
+  const { error } = await db.from('pipeline').update({ monto_cerrado: monto, moneda }).eq('id', id)
   if (error) throw error
 }
 
@@ -158,7 +163,7 @@ export async function getMetricasFinancieras(db: Db = browserClient): Promise<Me
 
   const { data, error } = await db
     .from('pipeline')
-    .select('estado, monto_cerrado, fecha_cierre')
+    .select('estado, monto_cerrado, fecha_cierre, moneda')
     .in('estado', ['Cerrado Ganado', 'Cerrado Perdido'])
 
   if (error) throw error
@@ -167,15 +172,26 @@ export async function getMetricasFinancieras(db: Db = browserClient): Promise<Me
   const ganados = rows.filter((r) => r.estado === 'Cerrado Ganado')
   const perdidos = rows.filter((r) => r.estado === 'Cerrado Perdido')
 
-  const ingresosTotales = ganados.reduce((sum, r) => sum + (r.monto_cerrado ?? 0), 0)
-  const ingresosEsteMes = ganados
-    .filter((r) => r.fecha_cierre && r.fecha_cierre >= inicioMes)
-    .reduce((sum, r) => sum + (r.monto_cerrado ?? 0), 0)
+  // Agrupado por moneda: sumar CLP con USD daría un número sin significado.
+  const conMonto = ganados.filter((r) => r.monto_cerrado !== null)
+  const monedas = [...new Set(conMonto.map((r) => r.moneda as Moneda))]
+
+  const porMoneda: IngresosPorMoneda[] = monedas.map((moneda) => {
+    const deLaMoneda = conMonto.filter((r) => r.moneda === moneda)
+    const total = deLaMoneda.reduce((sum, r) => sum + (r.monto_cerrado ?? 0), 0)
+    return {
+      moneda,
+      total,
+      esteMes: deLaMoneda
+        .filter((r) => r.fecha_cierre && r.fecha_cierre >= inicioMes)
+        .reduce((sum, r) => sum + (r.monto_cerrado ?? 0), 0),
+      ticketPromedio: deLaMoneda.length > 0 ? total / deLaMoneda.length : 0,
+      cierres: deLaMoneda.length,
+    }
+  }).sort((a, b) => b.total - a.total)
 
   return {
-    ingresosTotales,
-    ingresosEsteMes,
-    ticketPromedio: ganados.length > 0 ? ingresosTotales / ganados.length : 0,
+    porMoneda,
     dealsGanados: ganados.length,
     dealsPerdidos: perdidos.length,
     tasaConversion: rows.length > 0 ? ganados.length / rows.length : 0,
@@ -282,7 +298,7 @@ export type NuevoLead = Partial<
     | 'volumen_conversaciones' | 'rol_lead' | 'urgencia' | 'presupuesto_asignado'
     | 'industria_empresa' | 'canal_adquisicion' | 'fuente'
     | 'comentario_problematica' | 'research_insight'
-    | 'monto_cerrado' | 'fecha_cierre' | 'proximo_seguimiento'
+    | 'monto_cerrado' | 'moneda' | 'fecha_cierre' | 'proximo_seguimiento'
   >
 > & {
   nombre_lead: string

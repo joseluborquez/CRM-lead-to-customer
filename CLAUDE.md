@@ -103,6 +103,26 @@ Las páginas son Server Components async que traen datos con `getServerSupabase(
 
 Solo tema oscuro. Todos los colores son custom properties definidas en `app/globals.css` — nunca hardcodees hex, siempre referenciá variables como `var(--accent-violet)`, `var(--bg-card)`, `var(--text-muted)`. Colores de temperatura: `--ultra-hot` (rojo), `--hot` (naranjo), `--warm` (amarillo), `--cold` (azul).
 
+## Skills de Kapso
+
+Tres skills instaladas con documentación de referencia de la plataforma:
+
+| Skill | Para qué |
+|---|---|
+| `integrate-whatsapp` | setup links, webhooks, envío de mensajes y plantillas, WhatsApp Flows |
+| `automate-whatsapp` | workflows, grafos, triggers, functions, ejecuciones |
+| `observe-whatsapp` | logs, debug de entrega, reintentos de webhook, health checks |
+
+`.agents/` está en `.gitignore`: es contenido de terceros. Para reinstalarlas
+en un clon nuevo, desde el lockfile versionado:
+
+```bash
+npx skills install
+```
+
+`observe-whatsapp` trae scripts que sirven para diagnóstico
+(`whatsapp-health.js`, `api-logs.js`).
+
 ## Integración con WhatsApp (Kapso)
 
 El primer contacto lo maneja un agente de WhatsApp en Kapso (proyecto `nocodejose`, número "NoCode Lab" `+1 208-248-5778`). El agente entra a Supabase con `service_role` desde Cloudflare Workers (Kapso Functions), no desde esta app.

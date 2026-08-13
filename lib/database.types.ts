@@ -38,6 +38,7 @@ export type Database = {
           link_pagina_web: string | null
           link_reunion: string | null
           monto_cerrado: number | null
+          moneda: string
           nombre_empresa: string | null
           nombre_lead: string
           origen: string
@@ -77,6 +78,7 @@ export type Database = {
           link_pagina_web?: string | null
           link_reunion?: string | null
           monto_cerrado?: number | null
+          moneda?: string
           nombre_empresa?: string | null
           nombre_lead: string
           origen?: string
@@ -116,6 +118,7 @@ export type Database = {
           link_pagina_web?: string | null
           link_reunion?: string | null
           monto_cerrado?: number | null
+          moneda?: string
           nombre_empresa?: string | null
           nombre_lead?: string
           origen?: string

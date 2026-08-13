@@ -48,3 +48,7 @@ supabase/.temp/
 
 # Kapso: local del CLI
 kapso/.kapso/
+
+# Skills de agentes: contenido de terceros, reproducible desde skills-lock.json
+# con `npx skills install`. Se versiona el lockfile, no los archivos.
+.agents/
