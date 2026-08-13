@@ -139,6 +139,8 @@ Agenda: bloques de 1h, lun–mié 15:00–17:00 y jue–sáb 09:00–17:00, zona
 
 **Etapa 1: el score no bloquea el agendamiento.** Si el lead pide reunión, el agente la agenda sea cual sea su puntaje; el score solo modula qué tan proactivamente la ofrece. Es deliberado: no se puede calibrar un scoring que nunca se dejó fallar. Cuando haya suficientes conversaciones reales se ajustan pesos y umbrales con evidencia.
 
+Runbook de diagnóstico en `kapso/OBSERVABILIDAD.md`: qué mirar cuando el agente no responde, cuando dijo que hizo algo y no lo hizo, o cuando un cambio de prompt no surte efecto.
+
 ⚠️ **El contexto de la conversación vive en Kapso, no en Supabase.** Borrar un lead no reinicia lo que el agente recuerda, y un prompt nuevo no aplica a conversaciones ya abiertas — el Agent node retiene la ejecución hasta `complete_task`. Para reiniciar de verdad hay que cerrar la conversación (`whatsapp_conversations` → `set_status: ended`). Ver `kapso/README.md`.
 
 **Make y Chatwoot ya no están en el stack.** Se eliminaron el 2026-08-01 (migración `20260801164914_remove_make_integration`). Si ves referencias a `dispatch_lead_to_make`, `lead-dispatcher` o `conversacion_chatwoot_id`, son residuo histórico.

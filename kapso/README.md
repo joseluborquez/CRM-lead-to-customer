@@ -25,6 +25,7 @@ CRM: lead calificado, con score, transcripción y reunión agendada
 | `functions/` | Generado por `build.mjs`. Es lo que sube `kapso push`. |
 | `schemas/` | Input schemas. Generados desde `lib/types.ts`. |
 | `agente-prompt.md` | System prompt del Agent node |
+| `OBSERVABILIDAD.md` | Runbook de diagnóstico: síntoma → acción |
 | `generar-workflow.mjs` | Arma el Agent node desde el prompt y los schemas |
 | `scripts/obtener-refresh-token.mjs` | OAuth de Google, se corre una vez |
 
