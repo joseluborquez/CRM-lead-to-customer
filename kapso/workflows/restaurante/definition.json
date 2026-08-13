@@ -3,18 +3,21 @@
     {
       "label": "next",
       "source": "start",
-      "target": "agent_1782159548032"
+      "target": "agent_1782159548032",
+      "type": "default"
     },
     {
       "label": "next",
       "source": "agent_1782159548032",
-      "target": "send_text_1782160139705"
+      "target": "send_text_1782160139705",
+      "type": "default"
     }
   ],
   "nodes": [
     {
       "data": {
         "config": {},
+        "display_name": "Start",
         "node_type": "start"
       },
       "id": "start",

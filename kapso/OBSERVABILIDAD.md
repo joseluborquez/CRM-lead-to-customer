@@ -281,20 +281,37 @@ tres días en git y nunca en producción.
 
 ## 6. Alertas
 
-Cuando una ejecución del workflow falla, Kapso dispara
-`workflow.execution.failed` a un **project webhook**. Lo recibe
-`registrar-mensaje`, que:
+Dos eventos de Kapso llegan al mismo **project webhook**, recibido por
+`registrar-mensaje`. Los dos se registran en la tabla `incidentes` y
+disparan un correo.
 
-1. Guarda el incidente en la tabla `incidentes` de Supabase.
-2. Manda un correo con el error, los IDs y qué revisar.
+**`workflow.execution.failed`** — algo se rompió.
+El correo lleva el error, los IDs y qué revisar.
+
+**`workflow.execution.handoff`** — el agente derivó a una persona.
+No es un fallo: es el comportamiento correcto cuando el lead tiene
+propuesta enviada, cuando la urgencia no admite reunión, o cuando pide
+hablar con alguien.
+
+Pero **la conversación queda pausada** en el inbox de Kapso y el lead no
+recibe más respuestas del agente hasta que la retomes. Por eso el correo
+trae el contexto suficiente para decidir sin abrir el CRM: nombre,
+empresa, teléfono, puntaje, qué necesita y qué contó. Se resuelve buscando
+el lead por `kapso_conversation_id`; si no hay ficha, el aviso sale igual
+con lo que haya.
 
 El registro va primero a propósito: si el correo falla, el incidente igual
 queda y la columna `notificado = false` lo delata.
 
 ```sql
--- Fallos recientes
-select ocurrido_en, mensaje, ejecucion_id, notificado
+-- Todo lo que pidió atención
+select ocurrido_en, tipo, mensaje, telefono_e164, notificado
 from incidentes order by ocurrido_en desc limit 20;
+
+-- Solo derivaciones: ¿quedó alguna sin atender?
+select ocurrido_en, mensaje, telefono_e164
+from incidentes where tipo = 'workflow.execution.handoff'
+order by ocurrido_en desc;
 
 -- ¿Las alertas están mudas?
 select count(*) from incidentes where not notificado;

@@ -127,6 +127,110 @@ async function manejarFallo(env, payload) {
   return json({ ok: true, tipo: 'fallo', registrado: incidenteGuardado, notificado: enviado })
 }
 
+/**
+ * Busca el lead de una conversación, para que el correo diga a quién hay que
+ * atender y no solo un ID. Si no lo encuentra, el aviso sale igual: mejor un
+ * correo incompleto que ninguno.
+ */
+async function leadDeConversacion(env, conversacionId) {
+  if (!conversacionId) return null
+  try {
+    const filas = await sbFetch(
+      env,
+      `pipeline?kapso_conversation_id=eq.${encodeURIComponent(conversacionId)}&limit=1`
+    )
+    return filas?.[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Handoff: el agente derivó la conversación a una persona.
+ *
+ * NO es un fallo — es el comportamiento correcto en tres casos que el prompt
+ * define: lead con propuesta enviada, urgencia que no admite reunión, o
+ * alguien que pidió hablar con una persona.
+ *
+ * Pero la conversación queda PAUSADA esperando en el inbox de Kapso. Si nadie
+ * mira, el lead queda colgado sin respuesta. Por eso el correo lleva contexto
+ * suficiente para decidir sin abrir el CRM.
+ */
+async function manejarHandoff(env, payload) {
+  const ejecucion = payload.workflow_execution_id ?? null
+  const conversacion = payload.whatsapp_conversation_id ?? null
+  const motivo = payload.handoff?.reason ?? 'Sin motivo indicado'
+  const origen = payload.handoff?.source === 'agent_tool'
+    ? 'el agente lo decidió' : 'una acción del workflow'
+
+  const lead = await leadDeConversacion(env, conversacion)
+
+  let registrado = true
+  try {
+    await sbFetch(env, 'incidentes', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates' },
+      body: JSON.stringify({
+        tipo: 'workflow.execution.handoff',
+        workflow_id: payload.workflow_id ?? null,
+        ejecucion_id: ejecucion,
+        conversacion_id: conversacion,
+        telefono_e164: lead?.telefono_e164 ?? null,
+        mensaje: motivo,
+        payload,
+      }),
+    })
+  } catch (e) {
+    registrado = false
+    console.error('No se pudo guardar el handoff:', e.message)
+  }
+
+  const quien = lead
+    ? `${lead.nombre_lead}${lead.nombre_empresa ? ` — ${lead.nombre_empresa}` : ''}`
+    : 'Lead sin ficha en el CRM'
+
+  const contexto = lead ? [
+    `Teléfono:  ${lead.whatsapp ?? '—'}`,
+    `Estado:    ${lead.estado}`,
+    `Puntaje:   ${lead.puntuacion_lead ?? 0} pts (${lead.tipo_lead ?? '—'})`,
+    lead.alcance_agente ? `Necesita:  ${lead.alcance_agente}` : null,
+    lead.volumen_conversaciones ? `Volumen:   ${lead.volumen_conversaciones}` : null,
+    lead.urgencia ? `Urgencia:  ${lead.urgencia}` : null,
+    lead.comentario_problematica ? `\nQué contó:\n${lead.comentario_problematica}` : null,
+  ].filter(Boolean) : [
+    'No hay ficha asociada a esta conversación: puede que el agente haya',
+    'derivado antes de alcanzar a guardar los datos.',
+  ]
+
+  const enviado = await enviarEmail(env, {
+    asunto: `Te esperan en WhatsApp — ${quien}`,
+    cuerpo: [
+      'El agente derivó una conversación y quedó pausada esperándote.',
+      '',
+      `Motivo:    ${motivo}`,
+      `Origen:    ${origen}`,
+      '',
+      ...contexto,
+      '',
+      'La conversación está detenida en el inbox de Kapso hasta que la',
+      'retomes. El lead no va a recibir más respuestas del agente.',
+      '',
+      'https://app.kapso.ai',
+    ].join('\n'),
+  })
+
+  if (enviado && ejecucion && registrado) {
+    try {
+      await sbFetch(env, `incidentes?ejecucion_id=eq.${encodeURIComponent(ejecucion)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notificado: true }),
+      })
+    } catch { /* el registro ya está; el flag es secundario */ }
+  }
+
+  return json({ ok: true, tipo: 'handoff', registrado, notificado: enviado })
+}
+
 /** Un evento de mensaje → una fila de `conversaciones`. */
 function aFila(evento) {
   const m = evento.message || {}
@@ -164,6 +268,11 @@ async function handler(request, env) {
     // Fallo del workflow: se registra y se avisa por correo.
     if (evento === 'workflow.execution.failed') {
       return manejarFallo(env, payload)
+    }
+
+    // Derivación a una persona: el lead quedó esperando, hay que avisar.
+    if (evento === 'workflow.execution.handoff') {
+      return manejarHandoff(env, payload)
     }
 
     if (!evento.startsWith('whatsapp.message.received') &&
