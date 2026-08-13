@@ -1,7 +1,14 @@
 // @incluir _shared/supabase.js
+// @incluir _shared/google.js
+// @incluir _shared/email.js
 
 /**
- * registrar-mensaje — receptor de webhooks de WhatsApp.
+ * registrar-mensaje — receptor de webhooks de Kapso.
+ *
+ * El nombre quedó más angosto que lo que hace: además de la transcripción,
+ * maneja las alertas de fallo del workflow. Está junto porque el plan
+ * gratuito permite cinco functions desplegadas y ya están las cinco; un
+ * receptor de webhooks atendiendo dos familias de eventos es normal.
  *
  * ANTES era una tool del agente: el modelo la llamaba con cada mensaje que
  * entraba y con cada respuesta que daba. En una conversación de 20 mensajes
@@ -18,6 +25,7 @@
  * Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *          WEBHOOK_SECRET (opcional, ver verificarOrigen)
  *          PHONE_NUMBER_ID (opcional, restringe a un número)
+ *          GOOGLE_* + EMAIL_ALERTAS (para las alertas de fallo)
  */
 
 const TIPOS = {
@@ -56,6 +64,69 @@ function verificarOrigen(request, env, payload) {
   return null
 }
 
+/**
+ * Fallo de ejecución: queda registrado y sale un correo.
+ *
+ * El registro va primero. Si el correo falla —token sin scope, Gmail caído—
+ * al menos el incidente queda en la base y `notificado` en false lo delata.
+ */
+async function manejarFallo(env, payload) {
+  const ejecucion = payload.workflow_execution_id ?? null
+  const mensaje = payload.error?.message ?? 'Sin detalle del error'
+
+  let incidenteGuardado = true
+  try {
+    await sbFetch(env, 'incidentes', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates' },
+      body: JSON.stringify({
+        tipo: 'workflow.execution.failed',
+        workflow_id: payload.workflow_id ?? null,
+        ejecucion_id: ejecucion,
+        conversacion_id: payload.whatsapp_conversation_id ?? null,
+        mensaje,
+        payload,
+      }),
+    })
+  } catch (e) {
+    incidenteGuardado = false
+    console.error('No se pudo guardar el incidente:', e.message)
+  }
+
+  const cuando = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })
+  const enviado = await enviarEmail(env, {
+    asunto: 'El agente de WhatsApp falló',
+    cuerpo: [
+      'Una ejecución del agente terminó con error.',
+      '',
+      `Cuándo:       ${cuando}`,
+      `Error:        ${mensaje}`,
+      `Ejecución:    ${ejecucion ?? '—'}`,
+      `Conversación: ${payload.whatsapp_conversation_id ?? '—'}`,
+      '',
+      'Qué revisar:',
+      '  1. node kapso/tests/verificar-agente.mjs',
+      '  2. El runbook: kapso/OBSERVABILIDAD.md',
+      '  3. El canvas:',
+      `     https://app.kapso.ai/workflows/${payload.workflow_id ?? ''}/canvas`,
+      '',
+      'Si el lead quedó sin respuesta, la conversación puede necesitar que la',
+      'retomes a mano desde el inbox de Kapso.',
+    ].join('\n'),
+  })
+
+  if (enviado && ejecucion && incidenteGuardado) {
+    try {
+      await sbFetch(env, `incidentes?ejecucion_id=eq.${encodeURIComponent(ejecucion)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ notificado: true }),
+      })
+    } catch { /* el incidente ya está guardado; el flag es secundario */ }
+  }
+
+  return json({ ok: true, tipo: 'fallo', registrado: incidenteGuardado, notificado: enviado })
+}
+
 /** Un evento de mensaje → una fila de `conversaciones`. */
 function aFila(evento) {
   const m = evento.message || {}
@@ -89,6 +160,11 @@ async function handler(request, env) {
 
     const problema = verificarOrigen(request, env, payload)
     if (problema) return new Response(JSON.stringify({ ok: false, error: problema }), { status: 401 })
+
+    // Fallo del workflow: se registra y se avisa por correo.
+    if (evento === 'workflow.execution.failed') {
+      return manejarFallo(env, payload)
+    }
 
     if (!evento.startsWith('whatsapp.message.received') &&
         !evento.startsWith('whatsapp.message.sent')) {

@@ -63,7 +63,13 @@ if (problemas.length) {
 
 const PUERTO = 8123
 const REDIRECT_URI = `http://localhost:${PUERTO}`
-const SCOPE = 'https://www.googleapis.com/auth/calendar'
+// Dos scopes: el calendario para agendar, y gmail.send para las alertas de
+// fallo del agente. Van juntos porque un refresh token guarda los scopes con
+// los que se emitió — agregar uno después obliga a reautorizar igual.
+const SCOPE = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/gmail.send',
+].join(' ')
 
 const urlConsentimiento =
   'https://accounts.google.com/o/oauth2/v2/auth?' +
@@ -138,6 +144,7 @@ const servidor = http.createServer(async (req, res) => {
     console.log('  GOOGLE_CLIENT_ID       =', clientId)
     console.log('  GOOGLE_CLIENT_SECRET   = (el que pasaste)')
     console.log('  GOOGLE_CALENDAR_ID     = nocodejose@gmail.com')
+    console.log('  EMAIL_ALERTAS          = (a dónde van las alertas de fallo)')
     console.log('\nNo lo commitees ni lo pegues en un chat.\n')
   } catch (e) {
     responder(res, 'Error', e.message)

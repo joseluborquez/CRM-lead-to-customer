@@ -279,10 +279,78 @@ tres días en git y nunca en producción.
 
 ---
 
-## 6. Lo que todavía no está resuelto
+## 6. Alertas
 
-- **No hay alertas.** Si el agente falla a las 3 AM, te enterás cuando mires.
-  Un webhook de Kapso a `workflow.execution.failed` sería el primer paso.
+Cuando una ejecución del workflow falla, Kapso dispara
+`workflow.execution.failed` a un **project webhook**. Lo recibe
+`registrar-mensaje`, que:
+
+1. Guarda el incidente en la tabla `incidentes` de Supabase.
+2. Manda un correo con el error, los IDs y qué revisar.
+
+El registro va primero a propósito: si el correo falla, el incidente igual
+queda y la columna `notificado = false` lo delata.
+
+```sql
+-- Fallos recientes
+select ocurrido_en, mensaje, ejecucion_id, notificado
+from incidentes order by ocurrido_en desc limit 20;
+
+-- ¿Las alertas están mudas?
+select count(*) from incidentes where not notificado;
+```
+
+### El correo sale por Gmail, con el mismo OAuth del calendario
+
+No hay servicio de correo aparte. El scope `gmail.send` viaja en el mismo
+refresh token que usa el agendamiento.
+
+⚠️ **Un refresh token guarda los scopes con los que se emitió.** Si el tuyo
+se generó solo con el scope de calendario, Gmail responde 403
+("insufficient authentication scopes") y las alertas no salen — el
+agendamiento sigue funcionando igual, así que el síntoma es silencioso.
+
+Para arreglarlo hay que reautorizar; agregar el scope a un token ya emitido
+no es posible:
+
+```bash
+node kapso/scripts/obtener-refresh-token.mjs "CLIENT_ID" "CLIENT_SECRET"
+```
+
+y actualizar `GOOGLE_REFRESH_TOKEN` en los secrets de `registrar-mensaje`
+y de las dos functions de calendario.
+
+### Configuración
+
+| Secret en `registrar-mensaje` | Para qué |
+|---|---|
+| `EMAIL_ALERTAS` | a dónde llega el aviso |
+| `GOOGLE_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` | para enviar por Gmail |
+
+El project webhook se crea en **Kapso → Integrations → Webhooks → Platform
+webhooks**, apuntando a:
+
+```
+https://api.kapso.ai/platform/v1/functions/c9565fbc-20b7-4348-b3a4-787c3f7aa98b/invoke
+```
+
+con el evento `workflow.execution.failed` y el header `x-webhook-secret`
+igual al de la function.
+
+### Lo que esto NO cubre
+
+`workflow.execution.failed` se dispara cuando la **ejecución** falla, no
+cuando una tool devuelve `ok:false`. El caso de `guardar_lead` fallando
+nueve veces **no** habría generado esta alerta: la ejecución terminó bien
+desde el punto de vista de Kapso.
+
+Para eso está el verificador. Las dos cosas son complementarias: la alerta
+avisa que algo se rompió, el verificador encuentra lo que falló en silencio.
+
+---
+
+## 7. Lo que todavía no está resuelto
+
 - **No hay métricas de conversación.** Cuántas llegan, cuántas agendan, en qué
   paso se caen. Los datos están en `conversaciones` e `historial_estado`, pero
   nadie los mira.
