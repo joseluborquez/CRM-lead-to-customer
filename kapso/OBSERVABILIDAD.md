@@ -377,7 +377,92 @@ avisa que algo se rompió, el verificador encuentra lo que falló en silencio.
 
 ---
 
-## 7. Lo que todavía no está resuelto
+## 7. Atribución de anuncios (Click-to-WhatsApp)
+
+```
+anuncio → ctwa_clid en el 1er mensaje → registrar-mensaje lo guarda
+   → el lead avanza → trigger encola → pg_cron manda a Meta
+```
+
+Dos eventos se le reportan a Meta:
+
+| Evento | Cuándo | Valor |
+|---|---|---|
+| `Schedule` | el lead agenda reunión | — |
+| `Purchase` | pasa a Cerrado Ganado | implementación + 6 meses |
+
+Se eligió *agendar* y no el score como señal de lead calificado: es un
+compromiso del lead y no una evaluación nuestra, así que Meta optimiza
+hacia gente que agenda y no hacia lo que diga el scoring.
+
+### Diagnóstico
+
+```sql
+-- ¿Están llegando clics de anuncios?
+select recibido_en, ctwa_clid, source_id, headline
+from atribucion_ctwa order by recibido_en desc limit 20;
+
+-- Estado de la cola
+select tipo, estado, count(*) from eventos_meta group by 1,2;
+
+-- ¿Algo falló?
+select tipo, valor, intentos, ultimo_error, ocurrido_en
+from eventos_meta where estado = 'fallido' order by ocurrido_en desc;
+
+-- Forzar un ciclo sin esperar al cron
+select * from procesar_eventos_meta();
+```
+
+### "No llega ningún ctwa_clid"
+
+1. **¿Está activado Ads Attribution en el WABA?** Es la causa más
+   frecuente. Sin ese toggle Meta **no manda el objeto `referral`** y no
+   hay nada que capturar. WhatsApp Manager → configuración de la cuenta.
+2. ¿El lead entró de verdad por un anuncio? Un mensaje directo o desde
+   `wa.me` no trae `ctwa_clid`.
+3. **Solo viene en el PRIMER mensaje** de la conversación. Si se perdió
+   ahí, no se recupera.
+4. Revisá el `request_body` de `registrar-mensaje` en los logs: si el
+   `referral` está en el payload pero no en la tabla, es un problema de
+   parseo; si no está en el payload, es del punto 1 o 2.
+
+### "Los eventos quedan en pendiente"
+
+`procesar_eventos_meta()` sale sin hacer nada si faltan las credenciales
+en Vault:
+
+```sql
+select name from vault.secrets where name like 'META%';
+```
+
+Tienen que estar `META_ACCESS_TOKEN` y `META_DATASET_ID`.
+
+### "Quedan en fallido"
+
+Mirá `ultimo_error`. Los típicos: token expirado, dataset inexistente, o
+que falte el permiso `ads_management`. Se reintenta 5 veces antes de
+marcarlos así. Para reintentar a mano:
+
+```sql
+update eventos_meta set estado='pendiente', intentos=0 where estado='fallido';
+```
+
+### Probar sin ensuciar las campañas
+
+Cargá `META_TEST_EVENT_CODE` en Vault con el código del depurador de
+Meta (Events Manager → Probar eventos). Mientras exista, los eventos van
+al depurador y **no afectan la optimización real**. Borralo para pasar a
+producción:
+
+```sql
+select vault.create_secret('TESTxxxxx', 'META_TEST_EVENT_CODE', 'CAPI');
+-- y para salir de modo prueba:
+delete from vault.secrets where name = 'META_TEST_EVENT_CODE';
+```
+
+---
+
+## 8. Lo que todavía no está resuelto
 
 - **No hay métricas de conversación.** Cuántas llegan, cuántas agendan, en qué
   paso se caen. Los datos están en `conversaciones` e `historial_estado`, pero

@@ -625,6 +625,57 @@ async function manejarHandoff(env, payload) {
   return json({ ok: true, tipo: 'handoff', registrado, notificado: enviado })
 }
 
+/**
+ * Guarda la atribución del anuncio si el mensaje viene de un Click-to-WhatsApp.
+ *
+ * Meta pega el `referral` con el `ctwa_clid` SOLO al primer mensaje de la
+ * conversación. Si no se captura acá, no se recupera de ningún lado — y sin
+ * él no se le puede decir a Meta qué clic terminó en cliente.
+ *
+ * Llega antes de que el lead exista: el agente todavía no habló con nadie.
+ * Por eso se guarda por teléfono y el enlace al lead se resuelve después.
+ *
+ * Requiere "Ads Attribution" activado en el WABA. Sin eso Meta no manda el
+ * objeto `referral` en absoluto y esto nunca se dispara.
+ */
+async function guardarAtribucion(env, evento) {
+  const m = evento.message ?? {}
+  // Kapso puede pasar el referral de Meta tal cual o anidarlo bajo `kapso`.
+  // Se prueban las dos formas para no depender de un detalle no documentado.
+  const ref = m.referral ?? m.kapso?.referral ?? evento.referral
+  if (!ref?.ctwa_clid) return false
+
+  const telefono = normalizarTelefono(
+    evento.conversation?.phone_number ?? m.from
+  )
+  if (!telefono) return false
+
+  try {
+    // ctwa_clid es UNIQUE: un reintento del webhook no duplica el clic.
+    await sbFetch(env, 'atribucion_ctwa', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates' },
+      body: JSON.stringify({
+        telefono_e164: telefono,
+        ctwa_clid: ref.ctwa_clid,
+        source_id: ref.source_id ?? null,
+        source_type: ref.source_type ?? null,
+        source_url: ref.source_url ?? null,
+        headline: ref.headline ?? null,
+        cuerpo: ref.body ?? null,
+        payload: ref,
+      }),
+    })
+    console.log(`Atribución CTWA guardada: ${ref.ctwa_clid} (anuncio ${ref.source_id ?? '?'})`)
+    return true
+  } catch (e) {
+    // No se corta la transcripción por esto: perder la atribución es malo,
+    // perder el mensaje del lead es peor.
+    console.error('No se pudo guardar la atribución CTWA:', e.message)
+    return false
+  }
+}
+
 /** Un evento de mensaje → una fila de `conversaciones`. */
 function aFila(evento) {
   const m = evento.message || {}
@@ -677,8 +728,16 @@ async function handler(request, env) {
     // Con buffering activado el body trae { batch: true, data: [...] }.
     const eventos = payload.batch && Array.isArray(payload.data) ? payload.data : [payload]
 
+    // La atribución del anuncio, antes que nada: es lo único irrecuperable.
+    let atribuciones = 0
+    if (evento.startsWith('whatsapp.message.received')) {
+      for (const e of eventos) {
+        if (await guardarAtribucion(env, e)) atribuciones++
+      }
+    }
+
     const filas = eventos.map(aFila).filter(Boolean)
-    if (filas.length === 0) return json({ ok: true, guardados: 0 })
+    if (filas.length === 0) return json({ ok: true, guardados: 0, atribuciones })
 
     // Vincular al lead abierto de cada teléfono, si existe.
     const cache = new Map()
@@ -706,7 +765,7 @@ async function handler(request, env) {
       })
     }
 
-    return json({ ok: true, guardados: filas.length })
+    return json({ ok: true, guardados: filas.length, atribuciones })
   } catch (e) {
     // Devolver 200: si Kapso ve un error reintenta, y un fallo de escritura
     // de transcripción no debe generar una tormenta de reintentos.
