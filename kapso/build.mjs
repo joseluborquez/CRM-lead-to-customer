@@ -51,6 +51,26 @@ function enumsDelSchema(nombreSchema) {
 const rutaWorkspace = join(raiz, 'kapso.yaml')
 if (!existsSync(rutaWorkspace)) writeFileSync(rutaWorkspace, 'version: 1\n')
 
+// El prompt se valida en generar-workflow.mjs, pero hay texto que ve el lead
+// dentro de las tools —la descripción del evento de calendario, por ejemplo—
+// y ese quedaba fuera de cualquier chequeo. La invitación se envió en voseo y
+// con el nombre del negocio anterior durante dos semanas.
+const VOSEO = /(?<![a-záéíóúñ])(preguntá|contá|decí|decile|decilo|seguí|ofrecé|agendá|devolvé|fijate|mirá|dejá|poné|usá|elegí|guardá|llamá|revisá|anotá|respondé|tenés|podés|querés|necesitás|sabés|de acá|acá)(?![a-záéíóúñ])/i
+
+function revisarTextoVisible(slug, codigo) {
+  // Solo las cadenas de la descripción del evento: el resto son comentarios
+  // internos, donde el voseo no molesta a nadie.
+  const bloque = codigo.match(/descripcion: \[([\s\S]*?)\]/)
+  if (!bloque) return
+  const malas = bloque[1].split('\n').filter((l) => VOSEO.test(l))
+  if (malas.length) {
+    throw new Error(
+      `${slug}: hay voseo en texto que ve el lead.\n` +
+      malas.map((l) => `    ${l.trim().slice(0, 70)}`).join('\n')
+    )
+  }
+}
+
 let total = 0
 
 for (const archivo of readdirSync(join(raiz, 'tools')).filter((f) => f.endsWith('.js'))) {
@@ -72,6 +92,8 @@ for (const archivo of readdirSync(join(raiz, 'tools')).filter((f) => f.endsWith(
     (incluidos.length ? `// Incluye: ${incluidos.join(', ')}\n` : '') +
     `// ============================================================\n\n` +
     cuerpo.trimStart() + '\n'
+
+  revisarTextoVisible(slug, codigo)
 
   const dir = join(destino, slug)
   mkdirSync(dir, { recursive: true })

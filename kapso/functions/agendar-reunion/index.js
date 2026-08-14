@@ -515,16 +515,17 @@ async function handler(request, env) {
     const evento = await crearEvento(env, {
       inicioIso: inicio.toISOString(),
       finIso: fin.toISOString(),
-      titulo: `Reunión — ${nombre}${empresa}`,
+      titulo: `JLB Systems — ${nombre}${empresa}`,
       emailInvitado: input.email || lead.email || null,
 
-      // VISIBLE PARA EL LEAD. Nada interno acá.
+      // VISIBLE PARA EL LEAD. Nada interno acá, y en español de Chile:
+      // esto se lee en el correo de invitación y en el calendario.
       descripcion: [
-        'Reunión de diagnóstico con NoCode Lab.',
+        'Reunión con JLB Systems.',
         '',
-        'Vamos a revisar cómo funciona hoy tu operación y a definir el alcance',
-        'de lo que necesitas. De acá sale una maqueta general y los siguientes',
-        'pasos concretos.',
+        'Vamos a revisar cómo atiendes hoy por WhatsApp y a definir qué tiene',
+        'que hacer tu agente. De ahí sale el alcance y el valor exacto de la',
+        'mensualidad, por escrito.',
         '',
         'Dura una hora y es por videollamada.',
         '',

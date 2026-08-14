@@ -257,6 +257,10 @@ Si aparecen dos abiertos con el mismo teléfono, el índice
   desplegar, así que si aparece voseo es una ejecución vieja.
 - **Sin `**negrita**` de Markdown.** WhatsApp usa `*un asterisco*`; los dobles
   se muestran literales.
+- **La invitación de calendario dice "JLB Systems"**, no NoCode Lab, y está
+  en tuteo. Ese texto NO sale del prompt sino de `agendar-reunion.js`, así
+  que un cambio de marca en el prompt no lo alcanza. Se validó dos semanas
+  tarde, mirando el correo que le llegó a un lead.
 - **Confirma el precio publicado** cuando se lo preguntan: $250 de
   implementación, primer mes sin fee, desde $150. Si evade, está corriendo un
   prompt anterior a la v3.
