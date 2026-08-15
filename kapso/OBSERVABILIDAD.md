@@ -277,9 +277,17 @@ cd kapso && kapso build && kapso push --dry-run # debe decir "unchanged"
 git status                                      # debe estar vacío
 ```
 
-Si `git status` está limpio pero el dry-run dice "update", tenés código
-commiteado **sin desplegar**. Pasó una vez con el arreglo de horarios: estuvo
-tres días en git y nunca en producción.
+Si `git status` está limpio pero una **function** dice "update", tenés código
+commiteado **sin desplegar**. Pasó dos veces: el arreglo de horarios estuvo
+tres días en git y nunca en producción, y `consultar-disponibilidad` quedó
+atrás cuando se corrigió el contexto de WhatsApp — se pushearon las otras
+tres y esa no.
+
+⚠️ **El workflow siempre dice "1 update", y es normal.** `kapso pull`
+devuelve las tools con `function_slug` mientras el generador las escribe con
+`function_id`; el contenido es idéntico. Para confirmar que no hay drift real
+hay que comparar lo que importa —modelo, temperatura, largo del prompt,
+cantidad de tools— y no el conteo del dry-run.
 
 ---
 
@@ -467,6 +475,72 @@ las alternativas válidas.
 El último requisito **no se puede probar sin un anuncio real**. Un clid
 inventado es rechazado, que es justamente lo que uno quiere: Meta valida
 que el clic haya existido.
+
+### Por qué la campaña NO optimiza por estos eventos (todavía)
+
+Los eventos llegan a Meta pero **hoy no influyen en a quién le muestra los
+anuncios**. Es deliberado.
+
+El objetivo *Clientes potenciales* admite un solo objetivo de rendimiento
+—maximizar conversaciones— y no deja elegir un evento de conversión. Para
+optimizar por los eventos hay que usar el objetivo **Ventas**, y el
+objetivo no se puede cambiar en una campaña existente: hay que crear una
+nueva.
+
+| Objetivo | Optimiza hacia | ¿Usa estos eventos? |
+|---|---|---|
+| Interacción | que abran el chat | no |
+| **Clientes potenciales** ← el actual | que conversen | no |
+| Ventas | un evento de conversión | sí |
+
+No se cambió porque Meta necesita del orden de 50 conversiones semanales
+por conjunto de anuncios para que el aprendizaje sirva. Con pocos eventos,
+optimizar por conversiones entrega *peor* que optimizar por
+conversaciones: el algoritmo sale de la fase de aprendizaje mal calibrado.
+
+**Mientras tanto los eventos sí sirven** para dos cosas: atribución —saber
+qué anuncio trajo a cada lead que agendó y a cada cliente que cerró— e
+historial, para que cuando se cambie el objetivo Meta tenga con qué
+arrancar.
+
+#### Cuándo graduarse, y a qué
+
+```sql
+-- Volumen semanal. La señal para cambiar es LeadSubmitted sostenido.
+select date_trunc('week', ocurrido_en)::date AS semana, tipo, count(*)
+from eventos_meta where estado = 'enviado'
+group by 1,2 order by 1 desc;
+```
+
+Con **20+ `LeadSubmitted` por semana** de forma sostenida, conviene crear
+una campaña nueva con objetivo **Ventas**, ubicación WhatsApp, dataset
+`1306537234742317` y evento a optimizar **`LeadSubmitted`** — no
+`Purchase`.
+
+Ese orden importa: `Purchase` es el evento que más interesa, pero ocurre
+poco. Optimizar por él sin volumen deja al algoritmo sin señal. Recién con
+un historial de cierres consistente se pasa a `Purchase`.
+
+Es la razón por la que se mandan los dos eventos y no solo uno: dan un
+camino de graduación — conversaciones → LeadSubmitted → Purchase.
+
+#### Qué anuncio trae clientes de verdad
+
+Esto es lo que la campaña no muestra hoy, y es el valor inmediato de toda
+la integración:
+
+```sql
+select a.source_id AS anuncio, a.headline,
+       count(*) FILTER (WHERE e.tipo='LeadSubmitted') AS agendaron,
+       count(*) FILTER (WHERE e.tipo='Purchase')      AS cerraron
+from atribucion_ctwa a
+left join pipeline p ON p.telefono_e164 = a.telefono_e164
+left join eventos_meta e ON e.lead_id = p.id AND e.estado = 'enviado'
+group by 1,2 order by cerraron desc, agendaron desc;
+```
+
+Con poco volumen, mover presupuesto entre creatividades a mano según esta
+tabla suele rendir mejor que dejárselo al algoritmo.
 
 ### Probar sin ensuciar las campañas
 
