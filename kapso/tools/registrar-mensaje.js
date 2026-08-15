@@ -44,8 +44,19 @@ const PHONE_NUMBER_ID = '1265445653310243'
  * Control de origen en dos capas:
  *  1. El payload tiene que declarar el número esperado. Siempre activo.
  *  2. Si WEBHOOK_SECRET está en los secrets de la function, además se exige
- *     el header x-webhook-secret. Configuralo también en los headers del
- *     webhook para que un tercero que adivine la URL no pueda escribir.
+ *     el header x-webhook-secret.
+ *
+ * OJO con el secreto: un webhook de Kapso tiene DOS valores distintos.
+ * `secret_key`, que Kapso genera solo y usa para firmar en
+ * X-Webhook-Signature, y los `headers` personalizados, que es donde vive
+ * nuestro x-webhook-secret. En el dashboard los dos se leen como "el
+ * secreto del webhook".
+ *
+ * Poner uno en la function y el otro en el header hace que todo devuelva
+ * 401 y se pierdan las transcripciones EN SILENCIO — el agente sigue
+ * respondiendo porque sus tools se invocan por otra vía. Pasó entre el 13 y
+ * el 15 de agosto: tres conversaciones reales, dos de ellas con atribución
+ * de anuncio, que hubo que recuperar a mano desde la API de mensajes.
  */
 function verificarOrigen(request, env, payload) {
   if (env.WEBHOOK_SECRET) {

@@ -173,11 +173,50 @@ La transcripción NO la escribe el agente sino un webhook, así que puede
 fallar sin que la conversación se vea afectada.
 
 1. ¿El webhook está activo? MCP `whatsapp_webhooks` con `action: list`.
-2. **¿Coinciden los secretos?** El secret `WEBHOOK_SECRET` de la function
-   `registrar-mensaje` y el header `x-webhook-secret` del webhook tienen que
-   ser idénticos. Si difieren, la function devuelve 401 y **se pierden las
-   transcripciones en silencio** — el resto del agente sigue andando.
+2. **¿Coinciden los secretos?** El secret `WEBHOOK_SECRET` de la function y
+   el header `x-webhook-secret` del webhook tienen que ser idénticos. Si
+   difieren, la function devuelve 401 y **se pierden las transcripciones en
+   silencio** — el agente sigue respondiendo porque sus tools se invocan por
+   otra vía, así que nada parece roto.
+
+   ⚠️ **Un webhook de Kapso tiene DOS secretos y los dos se leen igual en el
+   dashboard:**
+
+   | Campo | Para qué | ¿Va en la function? |
+   |---|---|---|
+   | `secret_key` | Kapso firma con él en `X-Webhook-Signature` | — |
+   | `headers['x-webhook-secret']` | lo que viaja en cada request | **sí** |
+
+   Poner uno en un lado y el otro en el otro es el error fácil. Pasó entre el
+   13 y el 15 de agosto: tres conversaciones reales perdidas, dos con
+   atribución de anuncio, recuperadas a mano desde la API de mensajes.
+
+   Lo más simple es usar el mismo valor para los dos campos.
+
 3. En los logs, `registrar-mensaje` con status 401 confirma el desajuste.
+
+4. Para comparar sin exponer los valores, mandale un request a mano con el
+   header que tiene el webhook:
+
+   ```bash
+   curl -s -X POST "https://api.kapso.ai/platform/v1/functions/c9565fbc-20b7-4348-b3a4-787c3f7aa98b/invoke" \
+     -H "Content-Type: application/json" -H "X-Webhook-Event: whatsapp.message.received" \
+     -H "x-webhook-secret: EL_DEL_WEBHOOK" \
+     -d '{"phone_number_id":"1265445653310243","message":{},"conversation":{}}'
+   ```
+
+   `{"ok":true,...}` significa que coinciden.
+
+### Recuperar transcripciones y atribuciones perdidas
+
+Si el webhook estuvo caído, **los datos no se pierden del todo**: Kapso
+conserva los mensajes con su `referral` intacto. Se recuperan con
+`whatsapp_messages action=list`, filtrando por `conversation_id` y
+`direction: inbound`; el primer mensaje de cada conversación trae el
+`ctwa_clid`.
+
+Es tedioso pero funciona, y es la diferencia entre perder la atribución de
+una campaña o no.
 
 ### "El agente me habla como si ya me conociera"
 
