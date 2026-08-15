@@ -59,7 +59,10 @@ COMMENT ON COLUMN public.pipeline.mensualidad_usd IS
 CREATE TABLE public.eventos_meta (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   lead_id       uuid REFERENCES public.pipeline(id) ON DELETE CASCADE,
-  tipo          text NOT NULL CHECK (tipo IN ('Schedule','Purchase')),
+  -- "LeadSubmitted" es el nombre que exige Meta para business_messaging;
+  -- para nosotros significa que el lead agendó. "Schedule" no existe en ese
+  -- vocabulario: el propio error de la API lo dijo y sugirió este.
+  tipo          text NOT NULL CHECK (tipo IN ('LeadSubmitted','Purchase')),
   ctwa_clid     text,
   valor         numeric(12,2),
   moneda        text DEFAULT 'USD',
@@ -101,7 +104,7 @@ BEGIN
   END IF;
 
   v_tipo := CASE NEW.estado
-    WHEN 'Reunión Agendada' THEN 'Schedule'
+    WHEN 'Reunión Agendada' THEN 'LeadSubmitted'
     WHEN 'Cerrado Ganado'   THEN 'Purchase'
     ELSE NULL
   END;
@@ -177,6 +180,7 @@ AS $$
 DECLARE
   v_token   text := public.leer_secreto('META_ACCESS_TOKEN');
   v_dataset text := public.leer_secreto('META_DATASET_ID');
+  v_waba    text := public.leer_secreto('META_WABA_ID');
   v_test    text := public.leer_secreto('META_TEST_EVENT_CODE');
   v_ev      record;
   v_resp    record;
@@ -186,8 +190,8 @@ DECLARE
   v_ok      int := 0;
   v_fail    int := 0;
 BEGIN
-  IF v_token IS NULL OR v_dataset IS NULL THEN
-    RAISE NOTICE 'Faltan META_ACCESS_TOKEN o META_DATASET_ID en Vault; no se envía nada.';
+  IF v_token IS NULL OR v_dataset IS NULL OR v_waba IS NULL THEN
+    RAISE NOTICE 'Faltan META_ACCESS_TOKEN, META_DATASET_ID o META_WABA_ID en Vault.';
     RETURN QUERY SELECT 0, 0, 0;
     RETURN;
   END IF;
@@ -238,7 +242,12 @@ BEGIN
           -- mensajería de una web. Sin ellos Meta no la atribuye al anuncio.
           'action_source',     'business_messaging',
           'messaging_channel', 'whatsapp',
-          'user_data',         jsonb_build_object('ctwa_clid', v_ev.ctwa_clid),
+          -- El clid dice qué clic fue; el WABA, a qué cuenta llegó la
+          -- conversación. Meta rechaza el evento si falta cualquiera.
+          'user_data', jsonb_build_object(
+            'ctwa_clid', v_ev.ctwa_clid,
+            'whatsapp_business_account_id', v_waba
+          ),
           'custom_data',       CASE WHEN v_ev.tipo = 'Purchase'
                                     THEN jsonb_build_object(
                                            'currency', coalesce(v_ev.moneda,'USD'),
@@ -290,6 +299,7 @@ SELECT cron.schedule(
 --
 --   select vault.create_secret('EL_TOKEN', 'META_ACCESS_TOKEN', 'CAPI');
 --   select vault.create_secret('EL_DATASET', 'META_DATASET_ID', 'CAPI');
+--   select vault.create_secret('EL_WABA_ID', 'META_WABA_ID', 'CAPI');
 --   -- opcional, para probar sin afectar campañas:
 --   select vault.create_secret('TESTxxxxx', 'META_TEST_EVENT_CODE', 'CAPI');
 -- ============================================================

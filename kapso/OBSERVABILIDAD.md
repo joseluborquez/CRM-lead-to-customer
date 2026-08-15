@@ -388,7 +388,7 @@ Dos eventos se le reportan a Meta:
 
 | Evento | Cuándo | Valor |
 |---|---|---|
-| `Schedule` | el lead agenda reunión | — |
+| `LeadSubmitted` | el lead agenda reunión | — |
 | `Purchase` | pasa a Cerrado Ganado | implementación + 6 meses |
 
 Se eligió *agendar* y no el score como señal de lead calificado: es un
@@ -446,6 +446,27 @@ marcarlos así. Para reintentar a mano:
 ```sql
 update eventos_meta set estado='pendiente', intentos=0 where estado='fallido';
 ```
+
+### Lo que Meta exige en cada evento
+
+Estos cuatro requisitos salieron de probar contra la API real, uno por uno,
+y cada error lo dijo textual:
+
+| Requisito | Si falta |
+|---|---|
+| Dataset asignado al usuario del sistema, con "Usar conjunto de datos de eventos" | `(#100) Missing Permission` |
+| `event_name` del vocabulario de mensajería | *"Schedule no es válido, proporciona Purchase o LeadSubmitted"* |
+| `whatsapp_business_account_id` en `user_data` | *"Falta page_id o whatsapp_business_account_id"* |
+| `ctwa_clid` real, emitido por Meta | *"El parámetro ctwa_clid no es válido"* |
+
+El vocabulario de eventos de mensajería es más chico que el de web: ahí
+`Schedule` existe, acá no. Si hace falta agregar otro evento, mandalo
+primero y dejá que la API diga si lo acepta — el mensaje de error lista
+las alternativas válidas.
+
+El último requisito **no se puede probar sin un anuncio real**. Un clid
+inventado es rechazado, que es justamente lo que uno quiere: Meta valida
+que el clic haya existido.
 
 ### Probar sin ensuciar las campañas
 
