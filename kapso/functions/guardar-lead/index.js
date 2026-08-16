@@ -307,9 +307,33 @@ async function handler(request, env) {
     if (existente) {
       lead = await actualizarLead(env, existente.id, campos)
     } else {
+      // Antes se exigía el nombre para crear y se devolvía un error. El prompt
+      // manda guardar de a poco "para no perder nada si la conversación se
+      // corta", pero el código lo impedía hasta que apareciera un nombre — y
+      // hay dos momentos donde el nombre nunca llega:
+      //
+      //   · Descalificar a alguien. El 16/08 el agente entendió bien que una
+      //     persona no era un lead de negocio (quería entrar al WhatsApp de su
+      //     pololo) e intentó registrar el motivo. Falló, no quedó ficha, y
+      //     desde afuera parecían 22 mensajes sin explicación.
+      //   · Guardar lo primero que suelta el lead cuando dice la empresa o su
+      //     problema antes que su nombre, que es lo normal.
+      //
+      // nombre_lead es NOT NULL, así que va un provisional con el teléfono:
+      // en el kanban se ve "Sin nombre (+569…)", que es reconocible. Apenas el
+      // lead diga cómo se llama, la rama de arriba lo actualiza.
       if (!campos.nombre_lead) {
-        return errorJson('Para crear un lead nuevo hace falta al menos el nombre.')
+        // Sin ningún dato real no se crea nada: evita fichas vacías por una
+        // llamada suelta que solo trae el teléfono.
+        if (Object.keys(campos).length === 0) {
+          return errorJson(
+            'No mandaste ningún dato para guardar. Llamá de nuevo con lo que ' +
+            'hayas averiguado del lead.'
+          )
+        }
+        campos.nombre_lead = `Sin nombre (+${normalizarTelefono(telefono)})`
       }
+
       lead = await crearLead(env, {
         ...campos,
         whatsapp: telefono,

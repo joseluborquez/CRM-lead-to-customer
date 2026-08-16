@@ -73,7 +73,13 @@ async function invocaciones(id) {
   })
   if (!r.ok) throw new Error(`${r.status} ${await r.text().then((t) => t.slice(0, 200))}`)
   const d = await r.json()
-  return d.data ?? d.invocations ?? (Array.isArray(d) ? d : [])
+
+  // La API devuelve { data: { function_id, function_name, invocations, total } }.
+  // Este script asumía que `data` era el array y reventaba con
+  // "(intermediate value) is not iterable". No se había notado nunca porque
+  // sin KAPSO_API_KEY nunca llegó a autenticarse: fallaba antes, en el 401.
+  const arr = d.data?.invocations ?? d.invocations ?? d.data ?? d
+  return Array.isArray(arr) ? arr : []
 }
 
 /** El cuerpo puede venir como objeto o como string JSON. */
@@ -92,7 +98,9 @@ for (const f of functions) {
       todas.push({
         slug: f.slug,
         cuando: inv.created_at ?? inv.occurred_at ?? inv.timestamp ?? '',
-        status: inv.response_status ?? det.response_status,
+        // La API lo llama `status_code`; `response_status` era una suposición
+        // y dejaba el chequeo de 5xx sin nada que mirar.
+        status: inv.status_code ?? inv.response_status ?? det.response_status,
         entrada: comoObjeto(det.request_body),
         salida: comoObjeto(det.response_body),
       })
