@@ -44,6 +44,10 @@ const TOOLS = [
   ['guardar_lead', 'guardar-lead'],
   ['consultar_disponibilidad', 'consultar-disponibilidad'],
   ['agendar_reunion', 'agendar-reunion'],
+  // Comparte Worker con guardar_lead: el plan gratis tope en 5 functions y
+  // el `name` de la tool es independiente del `function_id`. El agente ve dos
+  // tools distintas; guardar-lead ramifica según `motivo_bloqueo`.
+  ['bloquear_numero', 'guardar-lead'],
 ]
 
 // ── System prompt ────────────────────────────────────────────

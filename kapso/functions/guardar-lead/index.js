@@ -193,6 +193,64 @@ const ESTADOS_PERMITIDOS = new Set([
   'Nuevo', 'Contactado', 'En Nurturing', 'Reunión Agendada', 'Descalificado',
 ])
 
+/**
+ * bloquear_numero vive en este mismo Worker.
+ *
+ * No es por elegancia: el plan gratis de Kapso permite 5 Cloudflare Workers y
+ * ya están los 5 ocupados. Como el `name` de una tool es independiente del
+ * `function_id`, el agente ve dos tools bien distintas —`guardar_lead` y
+ * `bloquear_numero`— y las dos entran por acá. El discriminador es
+ * `motivo_bloqueo`: si viene, es un bloqueo y nunca un guardado.
+ *
+ * Si algún día se paga el plan, esto vuelve a tools/bloquear-numero.js sin
+ * tocar el prompt ni el schema.
+ */
+async function bloquear(env, telefono, motivoCrudo) {
+  const tel = normalizarTelefono(telefono)
+  if (!tel) return errorJson(`No pude normalizar el teléfono "${telefono}".`)
+
+  const motivo = String(motivoCrudo).slice(0, 300)
+
+  // merge-duplicates: bloquear dos veces no es un error, solo actualiza el
+  // motivo. Sin esto reventaría por clave duplicada.
+  await sbFetch(env, 'telefonos_bloqueados', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify({ telefono_e164: tel, motivo, bloqueado_por: 'agente' }),
+  })
+
+  // Un número bloqueado no debe seguir figurando como oportunidad viva: si no,
+  // el embudo cuenta como "Nuevo" a alguien que nunca va a ser cliente.
+  let descalificado = false
+  try {
+    const lead = await buscarLeadPorTelefono(env, tel)
+    if (lead) {
+      await actualizarLead(env, lead.id, {
+        estado: 'Descalificado',
+        senales_conversacion: {
+          ...(lead.senales_conversacion ?? {}),
+          bloqueado: true,
+          motivo_bloqueo: motivo,
+        },
+      })
+      descalificado = true
+    }
+  } catch (e) {
+    // Bloquear es lo que importa; dejar la ficha prolija es secundario.
+    console.error('No pude descalificar el lead:', e.message)
+  }
+
+  return json({
+    ok: true,
+    bloqueado: true,
+    lead_descalificado: descalificado,
+    instruccion:
+      'Número bloqueado. NO escribas absolutamente NADA: ni despedida, ni ' +
+      'disculpa, ni una sola palabra. Cualquier texto que produzcas se le ' +
+      'envía por WhatsApp. Llamá a complete_task de inmediato y termina ahí.',
+  }, { numero_bloqueado: tel, motivo_bloqueo: motivo })
+}
+
 async function handler(request, env) {
   try {
     const body = await request.json().catch(() => ({}))
@@ -201,6 +259,12 @@ async function handler(request, env) {
 
     const telefono = input.telefono || wa.telefono
     if (!telefono) return errorJson('Falta el teléfono del lead.')
+
+    // Rama de bloqueo. Va antes que todo: no se guarda nada de alguien a
+    // quien se está cortando.
+    if (input.motivo_bloqueo) {
+      return await bloquear(env, telefono, input.motivo_bloqueo)
+    }
 
     const campos = {}
     const invalidos = []

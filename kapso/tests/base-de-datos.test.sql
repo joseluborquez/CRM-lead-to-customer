@@ -136,6 +136,42 @@ BEGIN
   SELECT 'CASCADE borra reuniones e historial',
          (SELECT count(*) FROM reuniones WHERE lead_id=v_lead)=0
          AND (SELECT count(*) FROM historial_estado WHERE lead_id=v_lead)=0, 'ok';
+
+  -- ── Bloqueo por el agente ──────────────────────────────────
+  -- El CHECK de bloqueado_por solo aceptaba 'humano' y 'sistema'. La tool
+  -- bloquear_numero escribe 'agente', así que el bloqueo fallaba entero y el
+  -- agente terminaba respondiéndole igual a quien lo insultó.
+  BEGIN
+    INSERT INTO telefonos_bloqueados (telefono_e164, motivo, bloqueado_por)
+    VALUES ('56900000001', 'Insultos', 'agente');
+    INSERT INTO r(caso,ok,detalle) VALUES ('el agente puede bloquear', true, 'ok');
+  EXCEPTION WHEN check_violation THEN
+    INSERT INTO r(caso,ok,detalle)
+    VALUES ('el agente puede bloquear', false, 'el CHECK rechaza bloqueado_por=agente');
+  END;
+
+  -- Bloquear dos veces al mismo número no es un error: el Worker manda
+  -- Prefer: resolution=merge-duplicates y debe actualizar el motivo.
+  BEGIN
+    INSERT INTO telefonos_bloqueados (telefono_e164, motivo, bloqueado_por)
+    VALUES ('56900000001', 'Insultos otra vez', 'agente')
+    ON CONFLICT (telefono_e164) DO UPDATE SET motivo = EXCLUDED.motivo;
+    INSERT INTO r(caso,ok,detalle)
+    SELECT 'bloquear dos veces actualiza el motivo',
+           motivo = 'Insultos otra vez', motivo
+    FROM telefonos_bloqueados WHERE telefono_e164='56900000001';
+  EXCEPTION WHEN OTHERS THEN
+    INSERT INTO r(caso,ok,detalle)
+    VALUES ('bloquear dos veces actualiza el motivo', false, SQLERRM);
+  END;
+
+  -- Los bloqueos del agente salen de un juicio del modelo: son los
+  -- candidatos a falso positivo y hay que poder listarlos aparte.
+  INSERT INTO r(caso,ok,detalle)
+  SELECT 'los bloqueos del agente son auditables aparte',
+         count(*)=1, count(*)::text
+  FROM telefonos_bloqueados
+  WHERE telefono_e164='56900000001' AND bloqueado_por='agente';
 END $$;
 
 SELECT caso, CASE WHEN ok THEN 'PASA' ELSE 'FALLA' END AS estado, detalle

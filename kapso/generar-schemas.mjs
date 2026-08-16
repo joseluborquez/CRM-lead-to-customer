@@ -151,6 +151,29 @@ const schemas = {
     },
   },
 
+  bloquear_numero: {
+    descripcion:
+      'Bloquea el número de forma permanente y CORTA la conversación en silencio. ' +
+      'Llamar apenas la persona escriba una grosería, un insulto o un garabato, sin ' +
+      'darle otra oportunidad. Después de llamarla NO escribas absolutamente nada —' +
+      'ni una despedida— y llamá a complete_task. Cualquier texto que produzcas se ' +
+      'le envía por WhatsApp, y despedirse invita a que siga.',
+    schema: {
+      type: 'object',
+      properties: {
+        motivo_bloqueo: {
+          type: 'string',
+          description:
+            'Por qué se bloquea, en pocas palabras, citando lo que escribió. ' +
+            'Queda guardado para que José pueda revisar y desbloquear si fue un ' +
+            'falso positivo. Ej: \'Insultos: "andate a la mierda"\'.',
+        },
+        telefono,
+      },
+      required: ['motivo_bloqueo'],
+    },
+  },
+
   agendar_reunion: {
     descripcion:
       'Crea la reunión en el calendario, genera el link de videollamada y le manda ' +

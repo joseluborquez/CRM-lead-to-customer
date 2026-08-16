@@ -134,6 +134,18 @@ Contrato con el agente:
 - Escribe `origen = 'WhatsApp Agente'` en lo que crea.
 - Guarda la calificación de a poco, no toda al final: si la conversación se corta, no se pierde.
 - Los input schemas de sus tools declaran los arrays de `lib/types.ts` como `enum`, así el modelo no puede emitir una paráfrasis que rompa el CHECK o sume 0.
+- **Ante un insulto no responde: bloquea y calla.** Llama a `bloquear_numero`, que escribe en `telefonos_bloqueados` con `bloqueado_por = 'agente'` y descalifica el lead abierto. No manda ni una despedida — con `message_delivery_mode: auto_send_assistant_text` todo texto sale por WhatsApp, y despedirse invita a que el otro siga. La próxima vez que escriba, `buscar_lead` devuelve modo `ignorar` y se corta antes de gastar un token de modelo.
+
+⚠️ **`bloquear_numero` y `guardar_lead` comparten el mismo Cloudflare Worker.** El plan gratis de Kapso permite 5 y ya están los 5 ocupados. Como el `name` de una tool es independiente del `function_id`, el agente ve dos tools distintas y las dos entran por `tools/guardar-lead.js`, que ramifica según el campo `motivo_bloqueo`. Si algún día se paga el plan, vuelve a ser una function propia sin tocar el prompt ni el schema.
+
+Para revisar falsos positivos y desbloquear:
+
+```sql
+SELECT telefono_e164, motivo, bloqueado_en FROM telefonos_bloqueados
+WHERE bloqueado_por = 'agente' ORDER BY bloqueado_en DESC;
+
+DELETE FROM telefonos_bloqueados WHERE telefono_e164 = '569...';
+```
 
 Agenda: bloques de 1h, lun–mié 15:00–17:00 y jue–sáb 09:00–17:00, zona `America/Santiago`, calendario `nocodejose@gmail.com`.
 
