@@ -245,4 +245,75 @@ test('describe en español y hora de Chile', () => {
   verdadero(d.endsWith('15:00'), `esperaba terminar en 15:00: ${d}`)
 })
 
+// ============================================================
+grupo('Firma de los webhooks de proyecto')
+// Los webhooks de NÚMERO mandan el header x-webhook-secret; los de PROYECTO
+// (workflow.execution.*) solo firman con X-Webhook-Signature. Exigir el header
+// dejaba fuera a los de proyecto: la alerta de "el agente se cayó" devolvió 401
+// en sus tres intentos y el correo nunca salió. El 15 de agosto el agente
+// estuvo caído por falta de créditos y nadie se enteró por esta vía.
+
+const webhook = await cargarFunction('registrar-mensaje')
+
+const CLAVE = 'clave-de-firma-de-prueba'
+const req = (firma) => ({ headers: { get: (h) =>
+  h.toLowerCase() === 'x-webhook-signature' ? firma : null } })
+
+/** Firma de referencia, calculada con node:crypto en vez de WebCrypto. */
+async function firmaDeReferencia(clave, cuerpo) {
+  const { createHmac } = await import('node:crypto')
+  return createHmac('sha256', clave).update(cuerpo, 'utf8').digest('hex')
+}
+
+await test('acepta una firma válida', async () => {
+  const cuerpo = '{"event":"workflow.execution.failed"}'
+  verdadero(await webhook.firmaValida(
+    { WEBHOOK_SIGNATURE_KEY: CLAVE }, cuerpo, await firmaDeReferencia(CLAVE, cuerpo)))
+})
+
+await test('sobrevive a acentos y emoji', async () => {
+  const cuerpo = '{"error":"Créditos insuficientes 👋"}'
+  verdadero(await webhook.firmaValida(
+    { WEBHOOK_SIGNATURE_KEY: CLAVE }, cuerpo, await firmaDeReferencia(CLAVE, cuerpo)))
+})
+
+await test('rechaza una firma de otro cuerpo', async () => {
+  verdadero(!(await webhook.firmaValida(
+    { WEBHOOK_SIGNATURE_KEY: CLAVE }, '{"a":1}',
+    await firmaDeReferencia(CLAVE, '{"a":2}'))))
+})
+
+await test('rechaza una firma hecha con otra clave', async () => {
+  const cuerpo = '{"a":1}'
+  verdadero(!(await webhook.firmaValida(
+    { WEBHOOK_SIGNATURE_KEY: CLAVE }, cuerpo, await firmaDeReferencia('otra', cuerpo))))
+})
+
+await test('sin clave configurada no valida nada', async () => {
+  const cuerpo = '{"a":1}'
+  verdadero(!(await webhook.firmaValida(
+    {}, cuerpo, await firmaDeReferencia(CLAVE, cuerpo))))
+})
+
+await test('sin header de firma no valida nada', async () => {
+  verdadero(!(await webhook.firmaValida({ WEBHOOK_SIGNATURE_KEY: CLAVE }, '{"a":1}', null)))
+})
+
+// El cuerpo se firma CRUDO. Un parse+stringify cambia espacios y escapado de
+// no-ASCII, y entonces la firma no cierra nunca.
+await test('reserializar el JSON invalida la firma', async () => {
+  const crudo = '{"a": 1, "t": "caf\\u00e9"}'
+  const firmaDelCrudo = await firmaDeReferencia(CLAVE, crudo)
+  verdadero(await webhook.firmaValida({ WEBHOOK_SIGNATURE_KEY: CLAVE }, crudo, firmaDelCrudo))
+  verdadero(!(await webhook.firmaValida(
+    { WEBHOOK_SIGNATURE_KEY: CLAVE }, JSON.stringify(JSON.parse(crudo)), firmaDelCrudo)))
+})
+
+test('la comparación no corta en la primera diferencia', () => {
+  verdadero(webhook.igualEnTiempoConstante('abc', 'abc'))
+  verdadero(!webhook.igualEnTiempoConstante('abc', 'abd'))
+  verdadero(!webhook.igualEnTiempoConstante('abc', 'abcd'))
+  verdadero(!webhook.igualEnTiempoConstante(null, 'abc'))
+})
+
 resumen()

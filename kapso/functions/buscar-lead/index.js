@@ -203,6 +203,31 @@ const INSTRUCCION_POR_MODO = {
     'retomar, y llamá a complete_task. No sigas preguntando.',
 }
 
+/**
+ * ¿Cuántas veces habló YA el agente con este número?
+ *
+ * Se cuentan solo los mensajes con rol 'agente', no todos. El webhook
+ * `registrar-mensaje` graba el mensaje entrante ANTES de que corra el agente,
+ * así que en el primer contacto ya hay una fila del lead: contar todo daría
+ * "hay historial" siempre y el agente no se presentaría nunca.
+ *
+ * Que el agente haya hablado antes es la única señal que importa acá, porque
+ * lo que se está evitando es que se presente dos veces.
+ */
+async function mensajesPrevios(env, tel) {
+  try {
+    const filas = await sbFetch(
+      env,
+      `conversaciones?telefono_e164=eq.${tel}&rol=eq.agente&select=id&limit=1`
+    )
+    return filas?.length ?? 0
+  } catch {
+    // Ante la duda, tratarlo como conversación nueva: presentarse de más es
+    // menos raro que hablarle de algo que nunca se dijo.
+    return 0
+  }
+}
+
 /** Muchos mensajes y cero información útil: no tiene sentido seguir. */
 async function esImproductiva(env, tel) {
   try {
@@ -245,12 +270,27 @@ async function handler(request, env) {
     const lead = await buscarLeadPorTelefono(env, telefono)
 
     if (!lead) {
+      // Que no haya ficha NO significa que sea la primera vez que hablamos.
+      // Si el lead nunca soltó un dato guardable —porque contestó de mala
+      // gana o con monosílabos— no hay fila en pipeline, y esta rama decía
+      // "presentate desde cero" en CADA mensaje.
+      //
+      // Pasó en producción: el agente se presentó de nuevo en el cuarto turno
+      // de una conversación que ya venía andando. Para el lead eso se lee
+      // como un bot roto. Por eso acá se mira `conversaciones`, que existe
+      // aunque no haya ficha.
+      const dichos = await mensajesPrevios(env, tel)
+
       return json({
         ok: true,
         existe: false,
         modo: 'calificar',
-        hay_historial: false,
-        instruccion: 'Lead nuevo. Presentate y calificá desde cero.',
+        hay_historial: dichos > 0,
+        instruccion: dichos > 0
+          ? 'Ya vienen conversando: NO te presentes de nuevo ni saludes como ' +
+            'si fuera el primer mensaje. Retomá donde quedaron. Todavía no ' +
+            'soltó ningún dato guardable, así que seguí calificando.'
+          : 'Lead nuevo. Presentate y calificá desde cero.',
         campos_pendientes: CAMPOS_CALIFICACION.map(([c]) => c),
       })
     }
@@ -263,12 +303,9 @@ async function handler(request, env) {
       .map(([c]) => c)
       .filter((c) => !respondidos.some(([r]) => r === c))
 
-    // ¿Hubo conversación real antes, o solo existe la ficha?
-    const previos = await sbFetch(
-      env,
-      `conversaciones?telefono_e164=eq.${tel}&select=id&limit=1`
-    )
-    const hayHistorial = (previos?.length ?? 0) > 0 || respondidos.length > 0
+    // ¿Hubo conversación real antes, o solo existe la ficha? Los leads del
+    // formulario viejo tienen ficha y cero charla.
+    const hayHistorial = (await mensajesPrevios(env, tel)) > 0 || respondidos.length > 0
 
     let modo = MODO_POR_ESTADO[lead.estado] ?? 'calificar'
 

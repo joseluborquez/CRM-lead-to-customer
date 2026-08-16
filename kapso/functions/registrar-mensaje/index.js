@@ -418,6 +418,8 @@ async function enviarEmail(env, { para, asunto, cuerpo }) {
  *
  * Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  *          WEBHOOK_SECRET (opcional, ver verificarOrigen)
+ *          WEBHOOK_SIGNATURE_KEY (opcional, el `secret_key` del webhook de
+ *            PROYECTO; sin esto las alertas de workflow.execution.* dan 401)
  *          PHONE_NUMBER_ID (opcional, restringe a un número)
  *          GOOGLE_* + EMAIL_ALERTAS (para las alertas de fallo)
  */
@@ -452,10 +454,70 @@ const PHONE_NUMBER_ID = '1265445653310243'
  * el 15 de agosto: tres conversaciones reales, dos de ellas con atribución
  * de anuncio, que hubo que recuperar a mano desde la API de mensajes.
  */
-function verificarOrigen(request, env, payload) {
-  if (env.WEBHOOK_SECRET) {
+/**
+ * Compara sin cortar en la primera diferencia. Un `!==` sobre strings
+ * secretos filtra información por el tiempo que tarda.
+ */
+function igualEnTiempoConstante(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  if (a.length !== b.length) return false
+  let dif = 0
+  for (let i = 0; i < a.length; i++) dif |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return dif === 0
+}
+
+/**
+ * Firma que manda Kapso: HMAC-SHA256(secret_key, cuerpo crudo), en hex.
+ *
+ * Va sobre los BYTES CRUDOS, no sobre el JSON reserializado: `JSON.parse` y
+ * `JSON.stringify` no son inversos exactos —cambian el orden de las claves y
+ * el escapado de los no-ASCII— y con acentos la firma no cerraría nunca.
+ */
+async function firmaValida(env, cuerpoCrudo, recibida) {
+  const clave = env.WEBHOOK_SIGNATURE_KEY
+  if (!clave || !recibida) return false
+
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(clave),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(cuerpoCrudo))
+    const hex = [...new Uint8Array(mac)]
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+    return igualEnTiempoConstante(hex, recibida.trim().toLowerCase())
+  } catch (e) {
+    console.error('No pude calcular la firma:', e.message)
+    return false
+  }
+}
+
+async function verificarOrigen(request, env, payload, cuerpoCrudo) {
+  // Los webhooks de Kapso NO se autentican todos igual:
+  //
+  //   · Los de número (whatsapp.message.*) mandan los `headers` personalizados
+  //     que configuramos nosotros → x-webhook-secret.
+  //   · Los de PROYECTO (workflow.execution.*) NO mandan headers propios:
+  //     solo firman con X-Webhook-Signature usando su secret_key.
+  //
+  // Exigir únicamente el header dejaba fuera a los de proyecto. Resultado: la
+  // alerta de "el agente se cayó" devolvía 401 en sus tres intentos y nunca
+  // salía el correo. El 15 de agosto el agente estuvo caído por falta de
+  // créditos y José se enteró por el aviso de facturación de Kapso, no por el
+  // nuestro. Una alerta que falla en silencio es peor que no tenerla.
+  const firmada = await firmaValida(
+    env, cuerpoCrudo, request.headers.get('x-webhook-signature')
+  )
+
+  if (!firmada && env.WEBHOOK_SECRET) {
     const recibido = request.headers.get('x-webhook-secret')
-    if (recibido !== env.WEBHOOK_SECRET) return 'Secreto inválido'
+    if (!igualEnTiempoConstante(recibido ?? '', env.WEBHOOK_SECRET)) {
+      return 'Secreto inválido'
+    }
   }
 
   const esperado = env.PHONE_NUMBER_ID || PHONE_NUMBER_ID
@@ -715,10 +777,15 @@ function aFila(evento) {
 
 async function handler(request, env) {
   try {
-    const payload = await request.json().catch(() => ({}))
+    // El cuerpo se lee como TEXTO, no con .json(): la firma se calcula sobre
+    // los bytes crudos y el body de un Request solo se puede consumir una vez.
+    const cuerpoCrudo = await request.text().catch(() => '')
+    let payload = {}
+    try { payload = cuerpoCrudo ? JSON.parse(cuerpoCrudo) : {} } catch { payload = {} }
+
     const evento = request.headers.get('x-webhook-event') || ''
 
-    const problema = verificarOrigen(request, env, payload)
+    const problema = await verificarOrigen(request, env, payload, cuerpoCrudo)
     if (problema) return new Response(JSON.stringify({ ok: false, error: problema }), { status: 401 })
 
     // Fallo del workflow: se registra y se avisa por correo.

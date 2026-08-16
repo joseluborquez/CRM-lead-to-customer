@@ -401,6 +401,7 @@ y de las dos functions de calendario.
 |---|---|
 | `EMAIL_ALERTAS` | a dónde llega el aviso |
 | `GOOGLE_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` | para enviar por Gmail |
+| `WEBHOOK_SIGNATURE_KEY` | **el `secret_key` del project webhook.** Sin esto las alertas dan 401 |
 
 El project webhook se crea en **Kapso → Integrations → Webhooks → Platform
 webhooks**, apuntando a:
@@ -409,8 +410,40 @@ webhooks**, apuntando a:
 https://api.kapso.ai/platform/v1/functions/c9565fbc-20b7-4348-b3a4-787c3f7aa98b/invoke
 ```
 
-con el evento `workflow.execution.failed` y el header `x-webhook-secret`
-igual al de la function.
+con el evento `workflow.execution.failed`.
+
+⚠️ **Los dos tipos de webhook NO se autentican igual.** Es la trampa que tuvo
+las alertas caídas sin que se notara:
+
+| | Webhook de **número** | Webhook de **proyecto** |
+|---|---|---|
+| Eventos | `whatsapp.message.*` | `workflow.execution.*` |
+| Cómo se autentica | header `x-webhook-secret` que configuramos nosotros | firma `X-Webhook-Signature` |
+| Secret en la function | `WEBHOOK_SECRET` | `WEBHOOK_SIGNATURE_KEY` |
+
+Un project webhook **no manda headers personalizados**: solo firma el cuerpo
+con su propio `secret_key`, que es distinto del secreto del webhook de número.
+Ponerle el header `x-webhook-secret` no sirve de nada — no lo envía.
+
+La firma es `HMAC-SHA256(secret_key, cuerpo crudo)` en hex, y se verifica
+sobre los **bytes crudos**: un `JSON.parse` + `JSON.stringify` cambia espacios
+y el escapado de los no-ASCII, y la firma deja de cerrar.
+
+Esto ya costó caro. El 15 de agosto el agente estuvo caído por falta de
+créditos; el webhook de fallo disparó sus tres reintentos y los tres murieron
+en 401 antes de ejecutar una línea de la function, así que el correo nunca
+salió. José se enteró por el aviso de facturación de Kapso, que solo cubre el
+caso "sin créditos" y ninguno de los demás.
+
+Para verificar que está bien configurado:
+
+```bash
+node kapso/tests/logica.test.mjs   # grupo "Firma de los webhooks de proyecto"
+```
+
+Y en los logs, un 401 con `X-Webhook-Signature` presente y sin
+`X-Webhook-Secret` significa que falta `WEBHOOK_SIGNATURE_KEY` o que tiene el
+valor equivocado.
 
 ### Lo que esto NO cubre
 
