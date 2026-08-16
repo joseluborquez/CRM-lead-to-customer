@@ -1,6 +1,53 @@
 // @incluir _shared/supabase.js
 // @incluir _shared/google.js
 // @incluir _shared/agenda.js
+// @incluir _shared/email.js
+
+/**
+ * Le avisa a José que agendaron, con el briefing listo para leer.
+ *
+ * Google no le manda correo al organizador de un evento que creó él mismo, así
+ * que las reuniones aparecían en su calendario sin ningún aviso: se enteraba
+ * solo si miraba el calendario. Este es el correo que faltaba.
+ *
+ * Nunca tira. La reunión ya está guardada cuando esto corre; si el correo
+ * falla, se pierde el aviso, no la reunión.
+ */
+async function avisarDeLaReunion(env, { lead, nombre, empresa, cuando, link, reagendada, email }) {
+  try {
+    const puntos = lead.puntuacion_lead ?? 0
+    const tipo = lead.tipo_lead ?? 'Sin clasificar'
+
+    const cuerpo = [
+      reagendada ? `${nombre}${empresa} REAGENDÓ su reunión.` : `${nombre}${empresa} agendó una reunión.`,
+      '',
+      `Cuándo:  ${cuando} (hora de Chile)`,
+      `Link:    ${link}`,
+      '',
+      `Tipo:    ${tipo} · ${puntos} pts`,
+      `WhatsApp: ${lead.whatsapp ?? '—'}`,
+      email ? `Correo:  ${email}` : 'Correo:  no dejó',
+      lead.industria_empresa ? `Industria: ${lead.industria_empresa}` : null,
+      '',
+      '── Lo que sabemos ──',
+      lead.alcance_agente ? `Qué tiene que hacer el agente: ${lead.alcance_agente}` : null,
+      lead.sistemas_a_integrar ? `Sistemas a integrar: ${lead.sistemas_a_integrar}` : null,
+      lead.volumen_conversaciones ? `Volumen: ${lead.volumen_conversaciones}` : null,
+      lead.rol_lead ? `Rol: ${lead.rol_lead}` : null,
+      lead.urgencia ? `Urgencia: ${lead.urgencia}` : null,
+      lead.comentario_problematica ? `\nEn sus palabras:\n${lead.comentario_problematica}` : null,
+      env.CRM_URL ? `\nFicha: ${env.CRM_URL}/leads/${lead.id}` : null,
+    ].filter((l) => l !== null).join('\n')
+
+    await enviarEmail(env, {
+      para: env.EMAIL_ALERTAS,
+      asunto: `${reagendada ? 'Reagendada' : 'Nueva reunión'}: ${nombre}${empresa} — ${cuando}`,
+      cuerpo,
+    })
+  } catch (e) {
+    console.error('No se pudo avisar de la reunión:', e.message)
+  }
+}
 
 /**
  * agendar_reunion — crea el evento y deja el lead en "Reunión Agendada".
@@ -97,11 +144,16 @@ async function handler(request, env) {
         `WhatsApp: ${lead.whatsapp ?? '—'}`,
         `Tipo: ${lead.tipo_lead ?? '—'} (${lead.puntuacion_lead ?? 0} pts)`,
         lead.industria_empresa ? `Industria: ${lead.industria_empresa}` : null,
-        lead.alcance_proyecto ? `Alcance: ${lead.alcance_proyecto}` : null,
+        // `alcance_proyecto` y `madurez_sistemas` se borraron en la migración
+        // v3 y quedaron acá: el briefing salía sin la dimensión de MAYOR peso
+        // del score. Los nombres nuevos son alcance_agente y
+        // sistemas_a_integrar.
+        lead.alcance_agente ? `Alcance del agente: ${lead.alcance_agente}` : null,
+        lead.sistemas_a_integrar ? `Sistemas a integrar: ${lead.sistemas_a_integrar}` : null,
+        lead.volumen_conversaciones ? `Volumen: ${lead.volumen_conversaciones}` : null,
         lead.presupuesto_asignado ? `Presupuesto: ${lead.presupuesto_asignado}` : null,
         lead.urgencia ? `Urgencia: ${lead.urgencia}` : null,
         lead.rol_lead ? `Rol: ${lead.rol_lead}` : null,
-        lead.madurez_sistemas ? `Sistemas: ${lead.madurez_sistemas}` : null,
         lead.comentario_problematica ? `\nProblemática:\n${lead.comentario_problematica}` : null,
         '\nAgendada por el agente de WhatsApp.',
       ].filter(Boolean).join('\n'),
@@ -150,6 +202,20 @@ async function handler(request, env) {
     const actualizado = await actualizarLead(env, lead.id, {
       estado: 'Reunión Agendada',
       ...(input.email ? { email: input.email } : {}),
+    })
+
+    // Aviso a José. Google NO le manda correo al organizador de un evento que
+    // creó él mismo, así que hasta ahora las reuniones aparecían en el
+    // calendario sin que nada se lo avisara. Se enteraba si miraba.
+    //
+    // Va después de guardar y nunca tira: si el correo falla, la reunión ya
+    // existe y no hay que romper la respuesta al agente por eso.
+    await avisarDeLaReunion(env, {
+      lead, nombre, empresa,
+      cuando: describirSlot(inicio.toISOString()),
+      link,
+      reagendada: Boolean(anterior),
+      email: input.email || lead.email || null,
     })
 
     return json({

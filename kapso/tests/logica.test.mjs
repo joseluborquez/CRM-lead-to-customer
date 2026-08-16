@@ -8,6 +8,7 @@
  */
 
 import { grupo, test, igual, verdadero, resumen, cargarFunction } from './correr.mjs'
+import * as nodeFs from 'node:fs'
 
 const agendar = await cargarFunction('agendar-reunion')
 const guardar = await cargarFunction('guardar-lead')
@@ -315,5 +316,47 @@ test('la comparación no corta en la primera diferencia', () => {
   verdadero(!webhook.igualEnTiempoConstante('abc', 'abcd'))
   verdadero(!webhook.igualEnTiempoConstante(null, 'abc'))
 })
+
+// ============================================================
+grupo('La hora que ve el lead sale en hora de Chile')
+// Freddy agendó a las 15:00 y el agente le empezó a decir 19:00: buscar_lead
+// devolvía `fecha_reunion` como el timestamp CRUDO de Postgres, que está en
+// UTC. Lo reagendó sin necesidad y el lead tuvo que corregirlo tres veces
+// hasta escribir "No 😡😡😡. A las 15 de chile".
+
+const buscar = await cargarFunction('buscar-lead')
+
+test('15:00 en Chile no se muestra como 19:00', () => {
+  const texto = buscar.describirSlot('2026-08-17T19:00:00+00:00')
+  verdadero(texto.includes('15:00'), `esperaba 15:00 y salió: ${texto}`)
+  verdadero(!texto.includes('19:00'), `se filtró la hora UTC: ${texto}`)
+})
+
+test('buscar-lead trae el mismo formateador que consultar_disponibilidad', () => {
+  igual(buscar.describirSlot('2026-08-17T19:00:00+00:00'),
+        agendar.describirSlot('2026-08-17T19:00:00+00:00'))
+})
+
+test('funciona a los dos lados del cambio de hora', () => {
+  // Invierno UTC-4: 13:00 UTC = 09:00 en Chile.
+  verdadero(buscar.describirSlot('2026-08-17T13:00:00+00:00').includes('09:00'))
+  // Verano UTC-3: 12:00 UTC = 09:00 en Chile.
+  verdadero(buscar.describirSlot('2026-12-15T12:00:00+00:00').includes('09:00'))
+})
+
+test('buscar_lead NO devuelve el timestamp crudo (el bug real)', () => {
+  // Los tests de arriba prueban el formateador, que nunca estuvo roto. El bug
+  // era que buscar_lead no lo llamaba y entregaba el valor de Postgres tal
+  // cual. Esto mira el código construido, que es donde vivía la falla.
+  const { readFileSync } = nodeFs
+  const src = readFileSync(
+    new URL('../functions/buscar-lead/index.js', import.meta.url), 'utf8')
+
+  const linea = src.split('\n').find((l) => /^\s*fecha_reunion:/.test(l))
+  verdadero(Boolean(linea), 'no encontré la línea que arma fecha_reunion')
+  verdadero(/describirSlot\(/.test(linea),
+    `fecha_reunion se devuelve sin formatear: ${linea?.trim()}`)
+})
+
 
 resumen()

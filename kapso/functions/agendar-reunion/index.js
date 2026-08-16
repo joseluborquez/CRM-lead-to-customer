@@ -1,7 +1,7 @@
 // ============================================================
 // GENERADO por kapso/build.mjs — NO EDITAR ACÁ.
 // Fuente: kapso/tools/agendar-reunion.js
-// Incluye: _shared/supabase.js, _shared/google.js, _shared/agenda.js
+// Incluye: _shared/supabase.js, _shared/google.js, _shared/agenda.js, _shared/email.js
 // ============================================================
 
 // ============================================================
@@ -448,6 +448,137 @@ function describirSlot(iso) {
     hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(iso))
 }
+// ============================================================
+// Envío de correo por la API de Gmail.
+//
+// Reusa el MISMO OAuth que el calendario. No hace falta Resend, SendGrid ni
+// ninguna cuenta nueva: el correo sale desde la casilla del propio dueño del
+// token.
+//
+// Requiere que GOOGLE_REFRESH_TOKEN incluya el scope
+// https://www.googleapis.com/auth/gmail.send
+//
+// Si el token se generó solo con el scope de calendario, esto devuelve 403 y
+// hay que volver a correr scripts/obtener-refresh-token.mjs. El scope no se
+// agrega solo a un token ya emitido.
+// ============================================================
+
+/**
+ * Codifica en base64url, que es lo que pide Gmail para el mensaje crudo.
+ * No es lo mismo que base64: cambia + por -, / por _ y saca el relleno.
+ */
+function base64url(texto) {
+  const bytes = new TextEncoder().encode(texto)
+  let binario = ''
+  for (const b of bytes) binario += String.fromCharCode(b)
+  return btoa(binario).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/** Los encabezados solo aceptan ASCII; el resto va codificado. */
+function asuntoCodificado(asunto) {
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]*$/.test(asunto)) return asunto
+  return `=?UTF-8?B?${base64url(asunto).replace(/-/g, '+').replace(/_/g, '/')}=?=`
+}
+
+/**
+ * Manda un correo de texto plano.
+ *
+ * Devuelve true/false en vez de tirar: una alerta que falla no debe romper el
+ * receptor de webhooks. Si Kapso ve un error, reintenta, y una tormenta de
+ * reintentos sobre un fallo de correo no ayuda a nadie.
+ */
+async function enviarEmail(env, { para, asunto, cuerpo }) {
+  const destino = para || env.EMAIL_ALERTAS || env.GOOGLE_CALENDAR_ID
+  if (!destino) {
+    console.error('Sin destinatario: configurá EMAIL_ALERTAS')
+    return false
+  }
+
+  try {
+    const token = await accessTokenGoogle(env)
+
+    const mensaje = [
+      `To: ${destino}`,
+      `Subject: ${asuntoCodificado(asunto)}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      btoa(String.fromCharCode(...new TextEncoder().encode(cuerpo))),
+    ].join('\r\n')
+
+    const r = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw: base64url(mensaje) }),
+      }
+    )
+
+    if (!r.ok) {
+      const detalle = await r.text()
+      // 403 con "insufficient authentication scopes" = el token no tiene
+      // gmail.send. Hay que reautorizar, no reintentar.
+      console.error(`Gmail ${r.status}: ${detalle.slice(0, 300)}`)
+      return false
+    }
+    return true
+  } catch (e) {
+    console.error('No se pudo enviar el correo:', e.message)
+    return false
+  }
+}
+
+/**
+ * Le avisa a José que agendaron, con el briefing listo para leer.
+ *
+ * Google no le manda correo al organizador de un evento que creó él mismo, así
+ * que las reuniones aparecían en su calendario sin ningún aviso: se enteraba
+ * solo si miraba el calendario. Este es el correo que faltaba.
+ *
+ * Nunca tira. La reunión ya está guardada cuando esto corre; si el correo
+ * falla, se pierde el aviso, no la reunión.
+ */
+async function avisarDeLaReunion(env, { lead, nombre, empresa, cuando, link, reagendada, email }) {
+  try {
+    const puntos = lead.puntuacion_lead ?? 0
+    const tipo = lead.tipo_lead ?? 'Sin clasificar'
+
+    const cuerpo = [
+      reagendada ? `${nombre}${empresa} REAGENDÓ su reunión.` : `${nombre}${empresa} agendó una reunión.`,
+      '',
+      `Cuándo:  ${cuando} (hora de Chile)`,
+      `Link:    ${link}`,
+      '',
+      `Tipo:    ${tipo} · ${puntos} pts`,
+      `WhatsApp: ${lead.whatsapp ?? '—'}`,
+      email ? `Correo:  ${email}` : 'Correo:  no dejó',
+      lead.industria_empresa ? `Industria: ${lead.industria_empresa}` : null,
+      '',
+      '── Lo que sabemos ──',
+      lead.alcance_agente ? `Qué tiene que hacer el agente: ${lead.alcance_agente}` : null,
+      lead.sistemas_a_integrar ? `Sistemas a integrar: ${lead.sistemas_a_integrar}` : null,
+      lead.volumen_conversaciones ? `Volumen: ${lead.volumen_conversaciones}` : null,
+      lead.rol_lead ? `Rol: ${lead.rol_lead}` : null,
+      lead.urgencia ? `Urgencia: ${lead.urgencia}` : null,
+      lead.comentario_problematica ? `\nEn sus palabras:\n${lead.comentario_problematica}` : null,
+      env.CRM_URL ? `\nFicha: ${env.CRM_URL}/leads/${lead.id}` : null,
+    ].filter((l) => l !== null).join('\n')
+
+    await enviarEmail(env, {
+      para: env.EMAIL_ALERTAS,
+      asunto: `${reagendada ? 'Reagendada' : 'Nueva reunión'}: ${nombre}${empresa} — ${cuando}`,
+      cuerpo,
+    })
+  } catch (e) {
+    console.error('No se pudo avisar de la reunión:', e.message)
+  }
+}
 
 /**
  * agendar_reunion — crea el evento y deja el lead en "Reunión Agendada".
@@ -544,11 +675,16 @@ async function handler(request, env) {
         `WhatsApp: ${lead.whatsapp ?? '—'}`,
         `Tipo: ${lead.tipo_lead ?? '—'} (${lead.puntuacion_lead ?? 0} pts)`,
         lead.industria_empresa ? `Industria: ${lead.industria_empresa}` : null,
-        lead.alcance_proyecto ? `Alcance: ${lead.alcance_proyecto}` : null,
+        // `alcance_proyecto` y `madurez_sistemas` se borraron en la migración
+        // v3 y quedaron acá: el briefing salía sin la dimensión de MAYOR peso
+        // del score. Los nombres nuevos son alcance_agente y
+        // sistemas_a_integrar.
+        lead.alcance_agente ? `Alcance del agente: ${lead.alcance_agente}` : null,
+        lead.sistemas_a_integrar ? `Sistemas a integrar: ${lead.sistemas_a_integrar}` : null,
+        lead.volumen_conversaciones ? `Volumen: ${lead.volumen_conversaciones}` : null,
         lead.presupuesto_asignado ? `Presupuesto: ${lead.presupuesto_asignado}` : null,
         lead.urgencia ? `Urgencia: ${lead.urgencia}` : null,
         lead.rol_lead ? `Rol: ${lead.rol_lead}` : null,
-        lead.madurez_sistemas ? `Sistemas: ${lead.madurez_sistemas}` : null,
         lead.comentario_problematica ? `\nProblemática:\n${lead.comentario_problematica}` : null,
         '\nAgendada por el agente de WhatsApp.',
       ].filter(Boolean).join('\n'),
@@ -597,6 +733,20 @@ async function handler(request, env) {
     const actualizado = await actualizarLead(env, lead.id, {
       estado: 'Reunión Agendada',
       ...(input.email ? { email: input.email } : {}),
+    })
+
+    // Aviso a José. Google NO le manda correo al organizador de un evento que
+    // creó él mismo, así que hasta ahora las reuniones aparecían en el
+    // calendario sin que nada se lo avisara. Se enteraba si miraba.
+    //
+    // Va después de guardar y nunca tira: si el correo falla, la reunión ya
+    // existe y no hay que romper la respuesta al agente por eso.
+    await avisarDeLaReunion(env, {
+      lead, nombre, empresa,
+      cuando: describirSlot(inicio.toISOString()),
+      link,
+      reagendada: Boolean(anterior),
+      email: input.email || lead.email || null,
     })
 
     return json({

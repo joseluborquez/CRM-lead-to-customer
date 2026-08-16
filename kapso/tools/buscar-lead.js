@@ -1,4 +1,5 @@
 // @incluir _shared/supabase.js
+// @incluir _shared/agenda.js
 
 /**
  * buscar_lead — primera tool que llama el agente en cada conversación.
@@ -181,7 +182,21 @@ async function handler(request, env) {
       tipo_lead: lead.tipo_lead,
       puntuacion: lead.puntuacion_lead,
       origen: lead.origen,
-      fecha_reunion: lead.fecha_reunion,
+      // ⚠️ NUNCA devolver el timestamp crudo acá.
+      //
+      // Postgres lo guarda en UTC: una reunión de las 15:00 en Chile se lee
+      // "2026-08-17T19:00:00+00". El agente leía ese 19 y se lo repetía al
+      // lead. Pasó con un lead real: agendó a las 15:00, el agente le empezó
+      // a decir 19:00, lo reagendó sin necesidad, y el tipo tuvo que
+      // corregirlo tres veces hasta escribir "No 😡😡😡. A las 15 de chile".
+      //
+      // consultar_disponibilidad nunca tuvo el problema porque ya formateaba
+      // con Intl. Acá se usa el MISMO formateador, para que la hora que ve el
+      // lead sea siempre la misma en los dos lados.
+      fecha_reunion: lead.fecha_reunion ? describirSlot(lead.fecha_reunion) : null,
+      // El ISO queda disponible por si hay que reagendar, marcado para que el
+      // modelo no lo confunda con algo que se le pueda mostrar al lead.
+      fecha_reunion_iso_no_mostrar: lead.fecha_reunion,
       calificacion_completa: lead.calificacion_completa,
       campos_pendientes: pendientes,
       ya_respondido: Object.fromEntries(respondidos),
