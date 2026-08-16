@@ -172,6 +172,47 @@ BEGIN
          count(*)=1, count(*)::text
   FROM telefonos_bloqueados
   WHERE telefono_e164='56900000001' AND bloqueado_por='agente';
+
+  -- ── Atribución sin ctwa_clid ───────────────────────────────
+  -- Meta omite el click ID cuando el usuario tiene el tracking restringido.
+  -- La columna era NOT NULL y descartábamos el referral entero, perdiendo el
+  -- source_id que sí venía.
+  BEGIN
+    INSERT INTO atribucion_ctwa (telefono_e164, ctwa_clid, source_id, source_type)
+    VALUES ('56900000002', NULL, '120258795415060112', 'ad');
+    INSERT INTO r(caso,ok,detalle) VALUES ('se guarda la atribución sin clid', true, 'ok');
+  EXCEPTION WHEN not_null_violation THEN
+    INSERT INTO r(caso,ok,detalle)
+    VALUES ('se guarda la atribución sin clid', false, 'ctwa_clid volvió a ser NOT NULL');
+  END;
+
+  -- Un índice único normal NO deduplica NULLs: sin el parcial, cada reintento
+  -- del webhook insertaría el mismo clic otra vez.
+  INSERT INTO atribucion_ctwa (telefono_e164, ctwa_clid, source_id, source_type)
+  VALUES ('56900000002', NULL, '120258795415060112', 'ad')
+  ON CONFLICT (telefono_e164, source_id) WHERE ctwa_clid IS NULL DO NOTHING;
+  INSERT INTO r(caso,ok,detalle)
+  SELECT 'un reintento no duplica la atribución sin clid', count(*)=1, count(*)::text
+  FROM atribucion_ctwa WHERE telefono_e164='56900000002';
+
+  -- El trigger tomaba la atribución más reciente a secas. Con un clic con
+  -- clid y otro sin, quedándose el sin clid arriba, descartaba una conversión
+  -- que sí se podía enviar.
+  INSERT INTO atribucion_ctwa (telefono_e164, ctwa_clid, source_id, recibido_en)
+  VALUES ('56900000003', 'CLID_BUENO', '120258795415060112', now() - interval '2 hours');
+  INSERT INTO atribucion_ctwa (telefono_e164, ctwa_clid, source_id, recibido_en)
+  VALUES ('56900000003', NULL, '120258794150490112', now());
+
+  INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
+  VALUES ('Test Atribución', '+56900000003', 'WhatsApp Agente', 'WhatsApp', 'Nuevo')
+  RETURNING id INTO v_lead;
+  UPDATE pipeline SET estado='Reunión Agendada' WHERE id=v_lead;
+
+  INSERT INTO r(caso,ok,detalle)
+  SELECT 'prefiere la atribución CON clid aunque sea más antigua',
+         ctwa_clid='CLID_BUENO' AND estado='pendiente',
+         coalesce(ctwa_clid,'NULL')||' / '||estado
+  FROM eventos_meta WHERE lead_id=v_lead AND tipo='LeadSubmitted';
 END $$;
 
 SELECT caso, CASE WHEN ok THEN 'PASA' ELSE 'FALLA' END AS estado, detalle

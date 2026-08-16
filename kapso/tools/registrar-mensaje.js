@@ -322,7 +322,18 @@ async function guardarAtribucion(env, evento) {
   // Kapso puede pasar el referral de Meta tal cual o anidarlo bajo `kapso`.
   // Se prueban las dos formas para no depender de un detalle no documentado.
   const ref = m.referral ?? m.kapso?.referral ?? evento.referral
-  if (!ref?.ctwa_clid) return false
+
+  // Antes se exigía el ctwa_clid y sin él se descartaba el referral entero.
+  //
+  // Meta omite el click ID cuando el usuario tiene el tracking restringido
+  // (ATT en iOS, opt-out). Pero el resto del referral llega igual: source_id,
+  // headline, el cuerpo del anuncio. Tirarlo todo era perder información que
+  // sí teníamos.
+  //
+  // Son dos cosas distintas: el clid sirve para mandarle la conversión a Meta,
+  // el source_id para saber en el CRM de qué anuncio vino el lead. Sin clid se
+  // pierde lo primero, no lo segundo.
+  if (!ref?.ctwa_clid && !ref?.source_id) return false
 
   const telefono = normalizarTelefono(
     evento.conversation?.phone_number ?? m.from
@@ -336,7 +347,7 @@ async function guardarAtribucion(env, evento) {
       headers: { Prefer: 'resolution=ignore-duplicates' },
       body: JSON.stringify({
         telefono_e164: telefono,
-        ctwa_clid: ref.ctwa_clid,
+        ctwa_clid: ref.ctwa_clid ?? null,
         source_id: ref.source_id ?? null,
         source_type: ref.source_type ?? null,
         source_url: ref.source_url ?? null,
@@ -345,7 +356,12 @@ async function guardarAtribucion(env, evento) {
         payload: ref,
       }),
     })
-    console.log(`Atribución CTWA guardada: ${ref.ctwa_clid} (anuncio ${ref.source_id ?? '?'})`)
+    console.log(
+      ref.ctwa_clid
+        ? `Atribución CTWA guardada: ${ref.ctwa_clid} (anuncio ${ref.source_id ?? '?'})`
+        : `Atribución SIN clid (anuncio ${ref.source_id}): Meta no mandó el click ID, ` +
+          'probablemente tracking restringido. Sirve para el CRM pero NO para conversiones.'
+    )
     return true
   } catch (e) {
     // No se corta la transcripción por esto: perder la atribución es malo,
