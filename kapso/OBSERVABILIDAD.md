@@ -58,6 +58,43 @@ Pasó el 1 de agosto: `guardar_lead` devolvió "Falta el teléfono" **nueve vece
 seguidas**, nunca se creó el lead, `agendar_reunion` falló en cascada, y desde
 afuera solo se veía al agente conversando con normalidad.
 
+### Ajustes del workflow que NO están en el repo
+
+⚠️ `WorkflowOptions` del CLI solo acepta `name` y `status`. Estos dos viven
+únicamente en el servidor, así que **`kapso push` no los toca y un `pull` no
+los trae**. Si el workflow se recrea desde cero, hay que volver a ponerlos:
+
+| Ajuste | Valor | Por qué |
+|---|---|---|
+| `message_debounce_seconds` | `10` | Espera 10s de silencio antes de arrancar la ejecución |
+| `inbound_message_read_mode` | `read_with_typing` | Muestra "escribiendo…" durante esa espera |
+
+**El problema que resuelven.** La gente escribe en varios mensajes seguidos —
+"quiero un agente" / "que agende horas" / "y que cobre". Sin debounce, cada
+mensaje dispara su propia ejecución: el agente contesta el primero mientras
+llegan los otros, y los que llegan después de su respuesta quedan colgados.
+La conversación se enreda y el lead siente que no lo escuchan.
+
+El valor sale de los datos, no de una corazonada: sobre 14 ráfagas reales,
+**13 se completan dentro de 10 segundos** (con 6s solo se agarran 9).
+
+**El costo.** El agente ya tarda 8s de mediana en responder (p90 11s, sobre 71
+respuestas). El debounce se suma: el lead espera ~18s desde que deja de
+escribir. Por eso va junto con `read_with_typing` — con el indicador de
+"escribiendo…" esa espera se lee como que está pensando; sin él, como que lo
+dejaron en visto. **No pongas uno sin el otro.**
+
+Para cambiarlos hace falta una API key (el CLI usa OAuth y no sirve acá):
+
+```bash
+node .agents/skills/automate-whatsapp/scripts/update-workflow-settings.js \
+  b6836b0b-2fda-4f41-8b41-f868b2325839 --lock-version <n> \
+  --message-debounce-seconds 10 --inbound-message-read-mode read_with_typing
+```
+
+El `lock-version` hay que leerlo primero; si está desactualizado, la API
+rechaza el cambio en vez de pisar una edición hecha desde el dashboard.
+
 ---
 
 ## 2. Dónde mirar
