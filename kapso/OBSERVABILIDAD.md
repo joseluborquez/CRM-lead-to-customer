@@ -512,6 +512,70 @@ Se eligió *agendar* y no el score como señal de lead calificado: es un
 compromiso del lead y no una evaluación nuestra, así que Meta optimiza
 hacia gente que agenda y no hacia lo que diga el scoring.
 
+### El formato exacto, y por qué es tan raro
+
+⚠️ **No lo "simplifiques".** Cada campo está ahí porque Meta rechaza el evento
+sin él. Se llegó a esta forma el 17/08 después de seis rechazos seguidos, y
+antes de eso **cero eventos** habían llegado a Meta en tres días.
+
+```
+POST https://graph.facebook.com/v21.0/{META_DATASET_ID}/events
+{
+  "upload_tag": "crm_jlb",
+  "data": [{
+    "match_keys": {
+      "ctwa_clid": "...",
+      "page_id":   "{META_PAGE_ID}",
+      "phone":     ["<sha256 del número, solo dígitos>"],
+      "email":     ["<sha256 del correo en minúsculas>"]
+    },
+    "event_name":        "LeadSubmitted" | "Purchase",
+    "event_time":        <epoch>,
+    "action_source":     "business_messaging",
+    "messaging_channel": "whatsapp",
+    "order_id":          "<id del evento, para no contar doble>"
+  }],
+  "access_token": "..."
+}
+```
+
+Los cuatro puntos que costaron encontrar:
+
+**1. `match_keys`, NO `user_data`.** Es lo único que esquiva el error
+`2804132` — *"el conjunto de datos debe tener una cuenta de WhatsApp Business
+asociada"*. Esa asociación **no se puede crear**: no está en activos conectados
+(solo admite cuentas publicitarias), no se deriva de asignarle el usuario del
+sistema a la WABA, y no se crea al elegir el tipo "Mensajes" al crear el
+conjunto de datos. El camino de `user_data` + `ctwa_clid` la exige; el de
+`match_keys` no.
+
+**2. `page_id` es obligatorio, y no es el que uno cree.** Es el de la PÁGINA DE
+FACEBOOK vinculada al número de WhatsApp. En esta cuenta el portafolio
+comercial, la WABA y la página se llaman todos "NoCode Lab", así que es fácil
+copiar el ID equivocado. El bueno está en Business Settings → Cuentas →
+Páginas.
+
+**3. El conjunto de datos tiene que ser el registrado como evento offline del
+anuncio.** Ads Manager → anuncio → Seguimiento → **Eventos offline**. Los otros
+tres conjuntos de la cuenta rechazan con `2804132` sin importar qué se mande.
+Y esa casilla se configura **por anuncio**: si solo está en uno, las
+conversiones de las otras creatividades no se atribuyen a nada.
+
+**4. Un `200` no significa que entró.** Meta devuelve 200 con `messages`
+poblado cuando aceptó la request pero descartó el evento. Lo que hay que mirar
+es `events_received >= 1`. La función ya lo valida así.
+
+Catálogo de rechazos, por si aparece uno nuevo:
+
+| Subcódigo | Qué falta |
+|---|---|
+| `2804132` | el conjunto de datos no tiene WABA asociada (usar `match_keys`) |
+| `2804063` | `messaging_channel` |
+| `2804066` | `event_name` inválido — solo `LeadSubmitted` o `Purchase` |
+| `2804069` | `page_id` |
+| `2804070` | `page_id` presente pero equivocado |
+| `2804071` | `ctwa_clid` |
+
 ### Diagnóstico
 
 ```sql
