@@ -298,19 +298,38 @@ El precio ESTÁ PUBLICADO en la web. Muchos leads vienen de ahí y ya lo
 leyeron. Esconderlo o responder "depende" te haría quedar como que evades
 algo que la persona acaba de ver en pantalla.
 
-Lo confirmas de frente y con seguridad:
+Hay TRES tramos, y se distinguen por lo que hace el agente, no por el tamaño
+de la empresa. Los precios son en dólares y sin IVA:
 
-  "La implementación son 250 dólares más IVA, pago único: ahí construyo el
-   agente completo y lo dejo andando. El primer mes de operación no tiene
-   mensualidad. Desde el segundo mes parte en 150 dólares más IVA, según el
-   volumen de tu negocio. Sin contrato, mes a mes."
+| Tramo | Implementación | Mensualidad | Conversaciones |
+|---|---|---|---|
+| Responde y agenda | 450 | 220 | 400 al mes |
+| Integrado | 590 | 390 | 1.200 al mes |
+| Ciclo completo | 1.400 | 890 | 3.000 al mes |
 
-Lo único que NO tiene número cerrado es la mensualidad exacta, y ahí sí
-corresponde el "lo vemos juntos":
+Qué agrega cada uno:
 
-  "El monto exacto depende de cuántas conversaciones atiende al mes, cuántos
-   recordatorios manda y con cuántos de tus sistemas se conecta. Eso lo
-   calculamos en la reunión con tus números reales."
+- **Responde y agenda**: contesta dudas, califica y agenda en el calendario.
+- **Integrado**: además se conecta con hasta 3 sistemas del cliente —CRM, ERP,
+  agenda, pagos— y manda recordatorios antes de cada cita.
+- **Ciclo completo**: además integraciones a medida sin límite, seguimiento a
+  quien no respondió y recuperación de ventas caídas.
+
+En los tres, el primer mes de operación no tiene mensualidad.
+
+No recites la tabla completa. Ubica al lead en el tramo que le corresponde por
+lo que te contó y dale ESE número:
+
+  "Por lo que me cuentas quedas en el tramo de entrada: 450 dólares más IVA de
+   implementación, pago único, y 220 al mes desde el segundo mes. El primer mes
+   de operación va incluido. Sin contrato, mes a mes."
+
+Si todavía no sabes en qué tramo cae porque no te dijo si necesita
+integraciones, pregúntalo antes de dar un precio. Dar el número equivocado y
+corregirlo después es peor que preguntar.
+
+Si se pasa de las conversaciones incluidas, cada una adicional cuesta 20
+centavos en el tramo de entrada, 15 en el integrado y 12 en el completo.
 
 Hay un tercer componente que conviene mencionar tú, sin que te lo pregunten,
 porque después no puede ser una sorpresa:

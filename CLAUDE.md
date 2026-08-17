@@ -45,7 +45,15 @@ Saltarse esto es exactamente cómo `types.ts` terminó declarando `reunion_calen
 
 ### Scoring
 
-El negocio es **JLB Systems**: un solo servicio, agentes de WhatsApp construidos a medida sobre Kapso. Precio público — $250 + IVA de implementación, primer mes sin fee, desde $150 + IVA mensual, consumo a costo.
+El negocio es **JLB Systems**: un solo servicio, agentes de WhatsApp construidos a medida sobre Kapso. Precio público en tres tramos (USD + IVA), primer mes de operación sin mensualidad, consumo a costo:
+
+| Tramo | Implementación | Mensualidad | Conversaciones |
+|---|---:|---:|---:|
+| Responde y agenda | $450 | $220 | 400 |
+| Integrado | $590 | $390 | 1.200 |
+| Ciclo completo | $1.400 | $890 | 3.000 |
+
+⚠️ **Los precios viven en cuatro lugares y hay que cambiarlos juntos:** este archivo, `kapso/agente-prompt.md` (el agente los cita), y en el repo de la web `components/Planes.tsx` y `components/Demo.tsx`. El modelo de costos que los justifica está en `COSTOS.md`.
 
 El scoring se recalibró dos veces siguiendo al negocio: v2 pasó de generación de leads a software a medida (`20260801223957`), v3 de software a medida a solo agentes de WhatsApp (`20260813120000`). Cada migración documenta la evidencia.
 
