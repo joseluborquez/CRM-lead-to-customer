@@ -15,14 +15,43 @@ USD, sin IVA. Primer mes de operación sin mensualidad en los tres.
 
 | Tramo | Implementación | Mensualidad | Conversaciones | Extra |
 |---|---:|---:|---:|---:|
-| Responde y agenda | $450 | $220 | 400 | $0,20 |
-| Integrado | $590 | $390 | 1.200 | $0,15 |
-| Ciclo completo | $1.400 | $890 | 3.000 | $0,12 |
+| Responde y agenda | $450 | $220 | 400 | $0,40 |
+| Integrado | $590 | $390 | 1.200 | $0,30 |
+| Ciclo completo | $1.400 | $890 | 3.000 | $0,25 |
 
 Los tramos se definen por **lo que hace el agente**, no por volumen. La razón es
 de costos: una conversación cuesta centavos, mientras que las integraciones
 cuestan horas y los seguimientos cuestan plantillas de Meta. Las conversaciones
 incluidas van como tope, no como driver de precio.
+
+### La conversación adicional es más cara que el plan, a propósito
+
+Precio efectivo por conversación dentro de cada tramo:
+
+```
+Tramo 1:  $220 / 400   = $0,55
+Tramo 2:  $390 / 1.200 = $0,33
+Tramo 3:  $890 / 3.000 = $0,30
+```
+
+La primera versión de este modelo puso el extra en $0,20 / $0,15 / $0,12 —**por
+debajo del precio del propio plan**— y eso invertía el incentivo: a un cliente
+de 800 conversaciones le convenía quedarse en el tramo 1 pagando extras ($300)
+antes que subir al tramo 2 ($390). Se quedaba abajo para siempre y costaba $62
+de margen al mes.
+
+Con los valores corregidos, subir de tramo conviene justo cuando el cliente lo
+necesita:
+
+```
+$220 + 425×$0,40   = $390   → desde ~825 conversaciones conviene el tramo 2
+$390 + 1.667×$0,30 = $890   → desde ~2.870 conviene el tramo 3
+```
+
+Margen en la conversación extra: entre **72% y 83%**, parejo con los tramos.
+
+Y **el extra baja al subir de tramo**, premiando al que se compromete. Vambe
+cobra $0,40 plano en los tres planes; es un argumento de venta que no tienen.
 
 ---
 
@@ -145,6 +174,7 @@ El líder chileno en agentes autónomos para canales de venta.
 | Implementación | $600 | $650 | a medida |
 | Mensualidad | $413 | $574 | desde $2.647 |
 | Conversaciones | 1.500 | 3.000 | — |
+| **Conversación extra** | **$0,40** | **$0,40** | **$0,40** |
 | Canales | WhatsApp **o** Instagram | 4 canales | todos |
 | Usuarios | 3 | 8 | infinitos |
 

@@ -328,8 +328,12 @@ Si todavía no sabes en qué tramo cae porque no te dijo si necesita
 integraciones, pregúntalo antes de dar un precio. Dar el número equivocado y
 corregirlo después es peor que preguntar.
 
-Si se pasa de las conversaciones incluidas, cada una adicional cuesta 20
-centavos en el tramo de entrada, 15 en el integrado y 12 en el completo.
+Si se pasa de las conversaciones incluidas, cada una adicional cuesta 40
+centavos en el tramo de entrada, 30 en el integrado y 25 en el completo.
+
+Y si un lead te dice que va a superar el tramo por bastante, lo correcto es
+recomendarle el tramo de arriba en vez de dejarlo desbordar: desde unas 825
+conversaciones al mes le sale más barato el Integrado que pagar extras.
 
 Hay un tercer componente que conviene mencionar tú, sin que te lo pregunten,
 porque después no puede ser una sorpresa:
