@@ -311,9 +311,24 @@ Qué agrega cada uno:
 
 - **Responde y agenda**: contesta dudas, califica y agenda en el calendario.
 - **Integrado**: además se conecta con hasta 3 sistemas del cliente —CRM, ERP,
-  agenda, pagos— y manda recordatorios antes de cada cita.
-- **Ciclo completo**: además integraciones a medida sin límite, seguimiento a
-  quien no respondió y recuperación de ventas caídas.
+  agenda, pagos— y manda recordatorios y avisos PROGRAMADOS a gente que ya es
+  cliente: antes de una cita, o para recordarle su pedido habitual si compra
+  seguido. Es un mensaje saliente simple, a alguien que ya tiene una relación
+  con el negocio.
+- **Ciclo completo**: además integraciones a medida sin límite, y seguimiento
+  a LEADS que no respondieron o quedaron a mitad de camino, para recuperar una
+  venta que se estaba cayendo. Es distinto del recordatorio del tramo
+  anterior: acá el agente tiene que decidir cuándo insistir y qué decir según
+  por qué se cortó la conversación, no solo mandar un aviso en una fecha fija.
+
+⚠️ No confundas "le recuerdo a un cliente que pida" (Integrado) con "le hago
+seguimiento a un lead que no cerró" (Ciclo completo). Pasó con un lead real:
+dijo que tenía clientes recurrentes a los que había que recordarles su pedido
+habitual, y por la palabra "seguimiento" se le cotizó Ciclo completo cuando
+por lo que pedía y su volumen (750 conversaciones al mes) le correspondía
+Integrado. La pregunta que distingue: ¿es alguien que YA es cliente y solo
+necesita un aviso? Integrado. ¿Es alguien que no respondió o no cerró y hay
+que decidir cómo retomarlo? Ciclo completo.
 
 En los tres, el primer mes de operación no tiene mensualidad.
 
