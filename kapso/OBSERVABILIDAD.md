@@ -765,11 +765,65 @@ delete from vault.secrets where name = 'META_TEST_EVENT_CODE';
 
 ---
 
+## 7.1 No-shows: la ventana de 24h ya está cerrada
+
+Descubierto el 19/08 con Freddy: agendó, no llegó a la reunión, y **nadie
+volvió a escribirle**. No existe ningún mecanismo automático que detecte un
+no-show y dispare un seguimiento — cada uno que ocurra hoy se pierde solo,
+sin que nada avise.
+
+Y aunque se detectara a tiempo, escribirle de vuelta casi nunca es tan
+simple como parece: la última vez que Freddy escribió fue al confirmar la
+reunión, así que para cuando alguien se da cuenta de que faltó, la
+**ventana de 24 horas de WhatsApp ya lleva días cerrada**. No se le puede
+mandar texto libre — hace falta una plantilla aprobada por Meta.
+
+### La plantilla queda marcada MARKETING, no UTILITY
+
+Se armó `seguimiento_reunion_no_asistida` como UTILITY —está atada a una
+cita real que el lead pidió, no es venta fría— pero Meta la reclasificó a
+MARKETING en la revisión automática, antes de terminar de aprobarla.
+
+Sospecha de por qué: el patrón completo —"le escribo a alguien que se
+enfrió para que retome contacto"— se parece a reactivación de marketing
+para el clasificador de Meta, más allá de la redacción exacta. Se intentó
+corregir editando la plantilla ya enviada (`update-template.mjs` con
+`category: UTILITY`) y Meta respondió:
+
+```
+"Cannot update an approved template category."
+```
+
+La categoría queda bloqueada apenas Meta la clasifica, aunque el `status`
+general siga en `PENDING`. **No se puede reclasificar editando** — solo
+borrar y volver a enviar como plantilla nueva, sin garantía de que la
+próxima redacción tampoco quede marcada como marketing.
+
+Se decidió aceptar MARKETING en vez de perseguir UTILITY: funciona igual
+para el envío, y el volumen de no-shows es bajo. El costo por mensaje puede
+ser algo mayor bajo el esquema de precios de Meta — no verificado en pesos
+para esta cuenta.
+
+### Cómo reusarla para el próximo no-show
+
+```bash
+node .agents/skills/integrate-whatsapp/scripts/send-template.mjs \
+  --phone-number-id 1265445653310243 \
+  --file <payload-con-nombre-del-lead>.json
+```
+
+El único parámetro es `{{nombre}}`. Una vez que el lead responda algo —lo
+que sea— se reabre la ventana de 24h y el agente retoma la conversación
+normal.
+
+---
+
 ## 8. Lo que todavía no está resuelto
 
-- **No hay métricas de conversación.** Cuántas llegan, cuántas agendan, en qué
-  paso se caen. Los datos están en `conversaciones` e `historial_estado`, pero
-  nadie los mira.
+- **No hay recuperación automática de no-shows.** Ver 7.1. Alguien tiene que
+  acordarse de revisar `estado_reunion` y mandar la plantilla a mano; no hay
+  recordatorio antes de la cita ni alerta cuando se pasa la hora sin que el
+  lead confirme.
 - **La política de créditos agotados no está definida.** Si Kapso o Meta cortan
   a mitad de mes, el agente deja de responder y el cliente te culpa a vos. Está
   marcado como pendiente en el documento de costos desde antes del primer
