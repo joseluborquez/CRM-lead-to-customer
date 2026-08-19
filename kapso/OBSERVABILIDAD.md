@@ -174,6 +174,41 @@ invocación. Es como se encontró el bug del doble anidado.
 
 4. **¿Llegó el mensaje?** MCP `whatsapp_conversations` con `action: list`.
 
+### "El agente le mandó su razonamiento al lead"
+
+⚠️ **Desde el 19/08 esto no debería poder pasar.** `message_delivery_mode` es
+`tool_only`: el texto normal del modelo queda interno, y lo único que llega
+al lead es lo que salga por `send_notification_to_user`. Antes era
+`auto_send_assistant_text` —todo texto se mandaba solo— y falló dos veces en
+tres días con leads reales: una vez ante una grosería (15/08), otra al cerrar
+por desinterés (18/08, el caso de Cristian/Comercializadora INDEN). Un
+refuerzo en el prompt no alcanzó las dos veces; por eso el cambio es
+estructural y no textual.
+
+Si igual aparece un mensaje que suena a razonamiento interno ("el lead no ha
+dado su nombre", "voy a responder con cordialidad"), revisá:
+
+1. **¿El deploy realmente tiene `tool_only`?** Chequealo contra el remoto, no
+   contra el archivo local — es fácil pushear con `kapso build` salteado:
+   ```bash
+   cd kapso && kapso pull --overwrite
+   python3 -c "
+   import json
+   d = json.load(open('workflows/nocode-jose/definition.json'))
+   c = [x for x in d['nodes'] if x['id']=='agente_calificador'][0]['data']['config']
+   print(c['message_delivery_mode'], c['enabled_default_tools'])
+   "
+   ```
+   Tiene que decir `tool_only` y la lista tiene que incluir
+   `send_notification_to_user` y `enter_waiting`.
+
+2. **¿El texto raro es un mensaje real o parte de uno?** Con `tool_only` cada
+   llamada a `send_notification_to_user` es un mensaje. Si el modelo describe
+   su plan DENTRO del argumento que le pasa a la herramienta ("le voy a decir
+   que..."), técnicamente ya no es una fuga del sistema —eso el modelo lo
+   decidió mandar—, pero es la misma falla de fondo. Se corrige reforzando
+   "Cómo hablas" en el prompt, no cambiando la configuración.
+
 ### "El agente respondió pero no hay nada en el CRM"
 
 **El caso más peligroso, porque no se ve.**

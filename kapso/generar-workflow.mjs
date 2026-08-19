@@ -141,11 +141,28 @@ const configAgente = {
   max_tokens: 2000,
   reasoning_effort: null,
   observer_prompt_mode: 'analysis_only',
-  message_delivery_mode: 'auto_send_assistant_text',
+  // tool_only, no auto_send_assistant_text: el texto normal del modelo queda
+  // interno y solo lo que pase por send_notification_to_user llega al lead.
+  //
+  // Antes confiábamos en la instrucción del prompt ("todo lo que escribas se
+  // envía"), y falló dos veces en tres días con leads reales — una vez ante
+  // una grosería (15/08), otra al cerrar una conversación por desinterés
+  // (18/08). Dos disparadores distintos, mismo defecto: el modelo a veces
+  // "piensa en voz alta" en un turno de texto separado, y Kapso manda
+  // cualquier texto que produzca en cualquier turno, no solo el final. Un
+  // refuerzo más en el prompt era apostar a que el tercer intento sí
+  // funcionara cuando los dos anteriores no alcanzaron.
+  //
+  // El costo es real: una llamada de tool extra por cada mensaje visible
+  // (~$0,005 c/u, medido el 17/08). Con el volumen de hoy son unos dólares
+  // más al mes. A cambio, una fuga de razonamiento deja de ser posible por
+  // diseño en vez de depender de que el modelo obedezca una instrucción.
+  message_delivery_mode: 'tool_only',
   enabled_default_tools: [
     'get_current_datetime',   // sin esto no sabe qué día es hoy
     'get_whatsapp_context',
     'enter_waiting',
+    'send_notification_to_user',
     'handoff_to_human',
     'complete_task',
   ],
