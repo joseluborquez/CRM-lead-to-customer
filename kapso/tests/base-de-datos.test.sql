@@ -17,25 +17,34 @@ CREATE TEMP TABLE r(orden serial, caso text, ok boolean, detalle text);
 DO $$
 DECLARE v_lead uuid; v_n int;
 BEGIN
-  -- ── Scoring ────────────────────────────────────────────────
-  INSERT INTO pipeline (nombre_lead, whatsapp, origen, alcance_proyecto,
-    especificidad_dolor, presupuesto_asignado, rol_lead, urgencia,
-    madurez_sistemas, tamano_equipo)
-  VALUES ('T1','56900000001','WhatsApp Agente','Sistema completo o integración con ERP',
-    'Nombra el proceso y las herramientas que usa','Más de $5.000 USD','Dueño/Socio/CEO',
-    'Esta semana/URGENTE','ERP o software empresarial','Más de 20 personas');
+  -- ── Scoring (v3, 6 dimensiones — 20260813120000_scoring_v3) ─
+  -- Este bloque usaba alcance_proyecto/madurez_sistemas/tamano_equipo, que
+  -- ya no existen desde el scoring v3. El archivo entero llevaba roto desde
+  -- esa migración sin que nadie lo notara: no corre en CI, solo a mano.
+  INSERT INTO pipeline (nombre_lead, whatsapp, origen, alcance_agente,
+    sistemas_a_integrar, especificidad_dolor, volumen_conversaciones,
+    rol_lead, urgencia)
+  VALUES ('T1','56900000001','WhatsApp Agente',
+    'Agendar, cobrar e integrar con sus sistemas','Varios sistemas propios o con API',
+    'Nombra el proceso y las herramientas que usa','Más de 500 al mes',
+    'Dueño/Socio/CEO','Esta semana/URGENTE');
   INSERT INTO r(caso,ok,detalle)
-  SELECT 'scoring: perfil máximo = 33 Ultra Hot',
-         puntuacion_lead=33 AND tipo_lead='Ultra Hot', puntuacion_lead||' '||tipo_lead
+  SELECT 'scoring: perfil máximo = 32 Ultra Hot',
+         puntuacion_lead=32 AND tipo_lead='Ultra Hot', puntuacion_lead||' '||tipo_lead
   FROM pipeline WHERE nombre_lead='T1';
 
-  -- Perfil RaulSpeed: "Menos de $500" suma 1, no descalifica.
-  INSERT INTO pipeline (nombre_lead, whatsapp, origen, alcance_proyecto,
-    especificidad_dolor, presupuesto_asignado, rol_lead, urgencia)
-  VALUES ('T2','56900000002','WhatsApp Agente','Automatización de proceso',
-    'Nombra un proceso concreto','Menos de $500 USD','Dueño/Socio/CEO','Esta semana/URGENTE');
+  -- Perfil medio: suma exactamente 17 combinando el peso menor de cada
+  -- dimensión salvo dolor/rol/urgencia, para plantar el caso justo en el
+  -- borde del umbral Hot.
+  INSERT INTO pipeline (nombre_lead, whatsapp, origen, alcance_agente,
+    sistemas_a_integrar, especificidad_dolor, volumen_conversaciones,
+    rol_lead, urgencia)
+  VALUES ('T2','56900000002','WhatsApp Agente',
+    'Responder y derivar a una persona','Nada, todo manual',
+    'Nombra un proceso concreto','Menos de 50 al mes',
+    'Dueño/Socio/CEO','Esta semana/URGENTE');
   INSERT INTO r(caso,ok,detalle)
-  SELECT 'scoring: perfil RaulSpeed = 17 Hot',
+  SELECT 'scoring: perfil medio = 17 Hot (borde del umbral)',
          puntuacion_lead=17 AND tipo_lead='Hot', puntuacion_lead||' '||tipo_lead
   FROM pipeline WHERE nombre_lead='T2';
 
@@ -46,15 +55,19 @@ BEGIN
          puntuacion_lead=0 AND tipo_lead='Cold', puntuacion_lead||' '||tipo_lead
   FROM pipeline WHERE nombre_lead='T3';
 
-  -- Deben coincidir con UMBRALES en lib/types.ts.
-  INSERT INTO r(caso,ok,detalle) VALUES ('umbrales 24/17/10',
-    clasificar_tipo_lead(24)='Ultra Hot' AND clasificar_tipo_lead(23)='Hot'
+  -- Deben coincidir con UMBRALES en lib/types.ts. Estaban en 24/17/10 (v2);
+  -- el piso de Ultra Hot subió a 25 en el scoring v3.
+  INSERT INTO r(caso,ok,detalle) VALUES ('umbrales 25/17/10',
+    clasificar_tipo_lead(25)='Ultra Hot' AND clasificar_tipo_lead(24)='Hot'
     AND clasificar_tipo_lead(17)='Hot'  AND clasificar_tipo_lead(16)='Warm'
     AND clasificar_tipo_lead(10)='Warm' AND clasificar_tipo_lead(9)='Cold', 'ok');
 
-  UPDATE pipeline SET presupuesto_asignado='Más de $5.000 USD' WHERE nombre_lead='T3';
+  -- presupuesto_asignado ya NO puntúa en v3 (se conserva por la historia de
+  -- cierres, pero salió del CASE) — por eso el recálculo se prueba con
+  -- urgencia, que sí pesa 4 puntos.
+  UPDATE pipeline SET urgencia='Esta semana/URGENTE' WHERE nombre_lead='T3';
   INSERT INTO r(caso,ok,detalle)
-  SELECT 'trigger recalcula en UPDATE', puntuacion_lead=5, puntuacion_lead::text
+  SELECT 'trigger recalcula en UPDATE', puntuacion_lead=4, puntuacion_lead::text
   FROM pipeline WHERE nombre_lead='T3';
 
   INSERT INTO pipeline (nombre_lead, whatsapp, origen) VALUES ('T4','+56 9 0000 0004','Manual');
@@ -198,13 +211,17 @@ BEGIN
   -- El trigger tomaba la atribución más reciente a secas. Con un clic con
   -- clid y otro sin, quedándose el sin clid arriba, descartaba una conversión
   -- que sí se podía enviar.
+  --
+  -- Teléfono 56900000030, no 003: 003 ya lo tiene T3 (scoring) abierto, y dos
+  -- leads abiertos con el mismo teléfono chocan contra
+  -- uq_pipeline_telefono_lead_abierto. Colisión preexistente, no de hoy.
   INSERT INTO atribucion_ctwa (telefono_e164, ctwa_clid, source_id, recibido_en)
-  VALUES ('56900000003', 'CLID_BUENO', '120258795415060112', now() - interval '2 hours');
+  VALUES ('56900000030', 'CLID_BUENO', '120258795415060112', now() - interval '2 hours');
   INSERT INTO atribucion_ctwa (telefono_e164, ctwa_clid, source_id, recibido_en)
-  VALUES ('56900000003', NULL, '120258794150490112', now());
+  VALUES ('56900000030', NULL, '120258794150490112', now());
 
   INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
-  VALUES ('Test Atribución', '+56900000003', 'WhatsApp Agente', 'WhatsApp', 'Nuevo')
+  VALUES ('Test Atribución', '+56900000030', 'WhatsApp Agente', 'WhatsApp', 'Nuevo')
   RETURNING id INTO v_lead;
   UPDATE pipeline SET estado='Reunión Agendada' WHERE id=v_lead;
 
@@ -213,6 +230,61 @@ BEGIN
          ctwa_clid='CLID_BUENO' AND estado='pendiente',
          coalesce(ctwa_clid,'NULL')||' / '||estado
   FROM eventos_meta WHERE lead_id=v_lead AND tipo='LeadSubmitted';
+
+  -- ── Recordatorios de reunión ───────────────────────────────
+  -- Dos ventanas con reglas distintas: 'proximo' (2-3h antes, siempre) y
+  -- 'previo' (20-24h antes, solo si hubo más de 36h entre agendar y la
+  -- cita). Se prueban las cinco formas de fallar: fuera de ventana, sin
+  -- margen suficiente, ya enviado, y cancelada.
+  DECLARE
+    v_l1 uuid; v_l2 uuid; v_l3 uuid; v_l4 uuid; v_l5 uuid;
+  BEGIN
+    INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
+    VALUES ('Test recordatorio 2-3h', '+56900000020', 'WhatsApp Agente', 'WhatsApp', 'Reunión Agendada')
+    RETURNING id INTO v_l1;
+    INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
+    VALUES ('Test recordatorio previo OK', '+56900000021', 'WhatsApp Agente', 'WhatsApp', 'Reunión Agendada')
+    RETURNING id INTO v_l2;
+    INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
+    VALUES ('Test recordatorio previo corto', '+56900000022', 'WhatsApp Agente', 'WhatsApp', 'Reunión Agendada')
+    RETURNING id INTO v_l3;
+    INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
+    VALUES ('Test recordatorio ya enviado', '+56900000023', 'WhatsApp Agente', 'WhatsApp', 'Reunión Agendada')
+    RETURNING id INTO v_l4;
+    INSERT INTO pipeline (nombre_lead, whatsapp, origen, fuente, estado)
+    VALUES ('Test recordatorio cancelada', '+56900000024', 'WhatsApp Agente', 'WhatsApp', 'Reunión Agendada')
+    RETURNING id INTO v_l5;
+
+    INSERT INTO reuniones (lead_id, fecha_inicio, fecha_fin, estado, creada_por, creado_en) VALUES
+      (v_l1, now()+interval '2h30m', now()+interval '3h30m', 'Confirmada', 'agente', now()-interval '2 days'),
+      (v_l2, now()+interval '22h',   now()+interval '23h',   'Confirmada', 'agente', now()-interval '3 days'),
+      (v_l3, now()+interval '22h',   now()+interval '23h',   'Confirmada', 'agente', now()-interval '10 hours'),
+      (v_l4, now()+interval '2h30m', now()+interval '3h30m', 'Confirmada', 'agente', now()-interval '2 days'),
+      (v_l5, now()+interval '2h30m', now()+interval '3h30m', 'Cancelada',  'agente', now()-interval '2 days');
+
+    UPDATE reuniones SET recordatorio_proximo_en = now()-interval '1 hour' WHERE lead_id=v_l4;
+
+    -- Secreto falso, vive y muere dentro de esta transacción con ROLLBACK.
+    PERFORM vault.create_secret('fake-para-test-no-real', 'KAPSO_API_KEY', 'test');
+
+    PERFORM enviar_recordatorios_reunion();
+
+    INSERT INTO r(caso,ok,detalle)
+    SELECT 'recordatorio 2-3h: se marca cuando corresponde', recordatorio_proximo_en IS NOT NULL, 'ok'
+    FROM reuniones WHERE lead_id=v_l1;
+
+    INSERT INTO r(caso,ok,detalle)
+    SELECT 'recordatorio previo: se marca con margen > 36h', recordatorio_previo_en IS NOT NULL, 'ok'
+    FROM reuniones WHERE lead_id=v_l2;
+
+    INSERT INTO r(caso,ok,detalle)
+    SELECT 'recordatorio previo: NO se manda sin margen suficiente', recordatorio_previo_en IS NULL, 'ok'
+    FROM reuniones WHERE lead_id=v_l3;
+
+    INSERT INTO r(caso,ok,detalle)
+    SELECT 'recordatorio cancelada: NO se manda', recordatorio_proximo_en IS NULL, 'ok'
+    FROM reuniones WHERE lead_id=v_l5;
+  END;
 END $$;
 
 SELECT caso, CASE WHEN ok THEN 'PASA' ELSE 'FALLA' END AS estado, detalle

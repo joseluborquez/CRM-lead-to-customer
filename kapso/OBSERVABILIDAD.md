@@ -818,12 +818,75 @@ normal.
 
 ---
 
+## 7.2 Recordatorios de reunión (automático, desde el 20/08)
+
+Dos plantillas, disparadas por `enviar_recordatorios_reunion()` vía
+`pg_cron` cada 15 minutos — mismo patrón que `procesar_eventos_meta()`,
+pero llamando al proxy de Kapso en vez de a Meta directo, porque quien
+tiene la sesión de WhatsApp Business autenticada es Kapso, no nosotros.
+
+| Tipo | Ventana | Condición extra |
+|---|---|---|
+| `proximo` | 2-3h antes | ninguna, siempre que la reunión siga vigente |
+| `previo` | 20-24h antes | solo si hubo más de 36h entre agendar y la cita |
+
+El piso de 36h en `previo` existe porque los leads de este negocio agendan
+con poco margen (Freddy agendó lunes para el mismo lunes). Sin ese piso, el
+recordatorio "del día anterior" saldría casi pegado a la confirmación y no
+aportaría nada — por eso el recordatorio `proximo` es el que de verdad
+importa, no el `previo`.
+
+**A diferencia de la plantilla de no-show, estas dos quedaron `UTILITY` sin
+reclasificación.** La diferencia de redacción: son un hecho puro sobre una
+cita ya confirmada ("tu reunión es a las X"), sin invitar a nada ni ofrecer
+un horario alternativo.
+
+Tracking en `reuniones.recordatorio_proximo_en` /
+`recordatorio_previo_en` — NULL significa no enviado. La función solo los
+marca después de encolar el request a Kapso con éxito; si Kapso responde
+con error (número inválido, plantilla no aprobada), la fila igual queda
+marcada como enviada — no hay una segunda fase de confirmación como en
+`procesar_eventos_meta()`. Si un lead dice que nunca le llegó el
+recordatorio, revisar los logs de Kapso, no asumir que la función falló.
+
+**Requiere `KAPSO_API_KEY` en Vault.** Sin ese secret la función se queda
+inerte —`RETURN QUERY SELECT 0, 0`, no falla, no manda nada—. Se carga
+desde **Supabase → Database → Vault**, pegado directo por José: nunca
+como texto en una consulta SQL, mismo criterio que todos los demás
+secretos de este proyecto.
+
+```sql
+-- Estado del mecanismo
+SELECT (SELECT decrypted_secret IS NOT NULL FROM vault.decrypted_secrets
+         WHERE name='KAPSO_API_KEY') AS secret_cargado,
+       jobname, schedule, active FROM cron.job WHERE jobname='recordatorios-reunion';
+
+-- Próximas reuniones y si ya se les mandó cada recordatorio
+SELECT p.nombre_lead, r.fecha_inicio, r.estado,
+       r.recordatorio_proximo_en IS NOT NULL AS mando_proximo,
+       r.recordatorio_previo_en  IS NOT NULL AS mando_previo
+FROM reuniones r JOIN pipeline p ON p.id=r.lead_id
+WHERE r.fecha_inicio > now() ORDER BY r.fecha_inicio;
+```
+
+Encontrado de paso al construir esto: **`base-de-datos.test.sql` llevaba
+roto desde el scoring v3** (13/08) — usaba columnas que ya no existen
+(`alcance_proyecto`, `madurez_sistemas`, `tamano_equipo`) y umbrales viejos
+(24 en vez de 25). Nadie lo notó porque no corre en CI, solo a mano.
+Corregido; correrlo de punta a punta antes de confiar en un cambio de
+scoring, no solo los casos nuevos que se agreguen.
+
+---
+
 ## 8. Lo que todavía no está resuelto
 
-- **No hay recuperación automática de no-shows.** Ver 7.1. Alguien tiene que
-  acordarse de revisar `estado_reunion` y mandar la plantilla a mano; no hay
-  recordatorio antes de la cita ni alerta cuando se pasa la hora sin que el
-  lead confirme.
+- **Los recordatorios (7.2) están construidos pero inertes hasta que se
+  cargue `KAPSO_API_KEY` en Vault.** Reducen la tasa de no-show hacia
+  adelante; no arreglan uno que ya pasó.
+- **Sigue sin haber recuperación automática de no-shows ya ocurridos.** Ver
+  7.1. Alguien tiene que acordarse de revisar `estado_reunion` y mandar la
+  plantilla de seguimiento a mano; no hay alerta cuando se pasa la hora de
+  una reunión sin que nadie la marque como Realizada o No Show.
 - **La política de créditos agotados no está definida.** Si Kapso o Meta cortan
   a mitad de mes, el agente deja de responder y el cliente te culpa a vos. Está
   marcado como pendiente en el documento de costos desde antes del primer
